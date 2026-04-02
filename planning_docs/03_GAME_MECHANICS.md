@@ -1,49 +1,48 @@
-# ASHENVEIL — Game Mechanics
+# ASHENVEIL - Game Mechanics
 
-## Combat System (Real-Time, Gothic 3 Reference)
+This document defines the native Godot gameplay model for Ashenveil. The rules are the same design-wise as before, but the runtime now targets a third-person Ubuntu build in Godot 4 with GDScript, scene resources, and autoload singletons.
+
+## Combat System
 
 ### Core Combat
-- **Third-person melee-focused** real-time combat
-- **Light Attack** — fast, low damage, can chain 3-hit combo
-- **Heavy Attack** — slow, high damage, can stagger enemies
-- **Block** — reduces damage, drains stamina. Timing-based parry for perfect block.
-- **Dodge Roll** — i-frames, stamina cost
-- **No lock-on by default** — free aim like Gothic. Optional soft lock-on.
+- Third-person melee-focused real-time combat
+- Light Attack: fast, low damage, can chain into a 3-hit combo
+- Heavy Attack: slow, high damage, can stagger enemies
+- Block: reduces damage, drains stamina, with timing-based perfect block windows
+- Dodge Roll: i-frames, stamina cost
+- No lock-on by default: free aim like Gothic, with optional soft lock behavior if needed
 
 ### Stamina System
 - All combat actions drain stamina
 - Stamina regenerates faster out of combat
 - Running also costs stamina
-- Low stamina = attacks get slower, can't block → punishes button mashing
+- Low stamina slows attacks and disables blocking, which punishes button mashing
 
-### Aether Powers (Limited Magic)
-- Player can channel Aether through hands (unique ability)
-- **Aether Pulse** — short-range knockback, first ability learned in tutorial
-- Additional powers found/taught throughout game (NOT in prototype scope)
-- Using Aether fills a **Corruption Meter** (see below)
+### Aether Powers
+- The player can channel Aether through their hands
+- Aether Pulse is the first ability learned in the tutorial
+- Later powers remain out of prototype scope
+- Using Aether fills the corruption meter
 
 ### Corruption Mechanic
-- Every Aether use fills the corruption bar slightly
+- Every Aether use fills corruption slightly
 - Corruption stages:
-  - 0-25%: No effect
-  - 25-50%: Visual distortion (screen edges pulse), minor stat buff (power increases)
-  - 50-75%: Hallucinations (fake enemies appear), significant power boost
-  - 75-100%: Losing control. Random Aether discharges. NPCs become afraid.
-  - 100%: Game over — you become a crystal statue (Aether consumed you)
-- Corruption decays slowly over time when NOT using Aether
-- Creates risk/reward: Aether is powerful but addictive and deadly
+  - 0-25%: no effect
+  - 25-50%: visual distortion, minor power increase
+  - 50-75%: hallucinations, stronger power, higher risk
+  - 75-100%: losing control, random Aether discharges, NPC fear
+  - 100%: game over, the player becomes a crystal statue
+- Corruption decays slowly over time when Aether is not used
+- The mechanic exists as risk/reward, not as a simple mana bar
 
 ## Progression System
 
 ### No Classes, No XP Bar
-- You don't pick a class at start
-- You don't earn XP from kills
-- **You improve by doing + finding teachers:**
-  - Want better sword skills? Find a combat trainer in Kernwall, pay/quest for lessons
-  - Want to handle Aether better? Risk learning from Hohensang cultists
-  - Want to pick locks? Befriend a thief in Flimmermoor
-- Skills unlock through specific trainer interactions, not a skill tree
-- Natural specialization: you can't train everything in one playthrough (time/faction limits)
+- No class selection at start
+- No XP from kills
+- Improvement comes from actions and trainers, not from abstract leveling
+- Skills unlock through specific trainer interactions, not via a generic skill tree
+- Natural specialization matters: the full game should not let one playthrough master everything
 
 ### Skill Categories
 | Category | Examples | Primary Trainers |
@@ -58,7 +57,7 @@
 ## Faction Reputation System
 
 ### Three-Axis Reputation
-Each realm has an independent reputation value: -100 (Hostile) to +100 (Trusted Ally)
+Each realm has an independent reputation value from -100 to +100.
 
 | Range | Status | Effect |
 |-------|--------|--------|
@@ -69,47 +68,52 @@ Each realm has an independent reputation value: -100 (Hostile) to +100 (Trusted 
 | +50 to +100 | Trusted | Inner circle quests, best trainers, faction-specific ending |
 
 ### Faction Tension
-- Helping one faction often reduces reputation with others (not always, but often)
+- Helping one faction often reduces reputation with others
 - Some quests are mutually exclusive between factions
-- Endgame requires at least one faction at Trusted level to attempt the Aether restart
-- The faction you're allied with determines the ending
+- The faction alliance should matter for endings and late-game access
 
 ## Inventory & Economy
 
 ### Inventory
-- **Weight-based** inventory (no magic bag of holding)
-- Equipment slots: Head, Chest, Legs, Boots, Gloves, Weapon, Shield/Offhand, 2x Accessory
-- Quick slots for consumables (food, potions)
+- Weight-based inventory, no magic bag of holding
+- Equipment slots: head, chest, legs, boots, gloves, weapon, shield/offhand, accessories
+- Quick slots for consumables such as food and potions
 
 ### Economy
-- **Gold coins** as currency
-- Prices affected by faction reputation (better rep = better prices)
-- Hunting and selling meat/pelts is the early-game economy loop
-- Aether crystals are high-value but dangerous to carry (slow corruption)
+- Gold coins as currency
+- Prices are affected by faction reputation
+- Early-game economy loop: hunt, sell meat and pelts, buy gear
+- Aether crystals are valuable but dangerous to carry because they accelerate corruption
 
-### Crafting (Simple)
-- **Cooking:** Combine ingredients at campfires. Food = health regeneration over time.
-- **Aether Smithing:** Upgrade weapons/armor with Aether crystals at forges. Risk: corruption.
-- No complex crafting trees. Keep it Gothic-style: find recipe, have materials, use station.
+### Crafting
+- Cooking: combine ingredients at campfires for regeneration food
+- Aether smithing: upgrade weapons or armor with Aether crystals at forges, with corruption risk
+- No complex crafting trees. Keep it Gothic-style: recipe, materials, station.
 
 ## NPC & Dialogue System
 
 ### Gothic-Style Dialogue
 - No voiced protagonist
-- NPCs have dialogue options but **no moral indicators** (no blue/red choices)
-- Consequences are not telegraphed — you learn from experience
-- NPCs remember your actions and adjust dialogue
-- Some dialogue options only available with sufficient skill (e.g., Persuasion) or faction rep
+- Dialogue options have no moral color coding
+- Consequences are learned through play, not telegraphed by the UI
+- NPCs remember your actions and can react to them later
+- Some dialogue options depend on skills or faction reputation
 
-### NPC Schedules (Stretch Goal)
-- NPCs have daily routines (sleep, work, eat, patrol)
-- Not required for prototype but planned for full game
+### NPC Schedules
+- NPC daily routines are planned but not required for the vertical slice
 
 ## World Navigation
 
 ### Open World Rules
-- No invisible walls, no level gates
-- Difficulty scales by geography: areas near Aether zones are harder
-- Fast travel: none initially. Unlock routes through faction reputation.
-- Day/night cycle affects enemy spawns and NPC availability
-- Weather: Aether storms are random events that increase danger temporarily
+- No invisible walls and no level gates in the long-term design
+- Difficulty scales by geography, especially near Aether zones
+- Fast travel is not part of the early game
+- Day/night affects enemy spawns and NPC availability
+- Aether storms temporarily raise danger
+
+## Native Runtime Notes
+
+- Game state lives in Godot autoload singletons, not in scene-local state
+- Item, quest, NPC, and enemy data stay external in JSON and are loaded at runtime
+- Combat, dialogue, inventory, and quests must stay decoupled enough to test separately
+- Camera and movement tuning should favor the heavier Gothic feel rather than a floaty action-cam feel

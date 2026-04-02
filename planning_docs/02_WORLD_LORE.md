@@ -1,4 +1,4 @@
-# ASHENVEIL — World & Lore
+# ASHENVEIL - World & Lore
 
 ## The Aether
 
@@ -53,6 +53,12 @@ The Aether was a visible energy network flowing through the sky like luminous ri
 - Hands glow faintly — can touch Aether without corruption (unique in 200 years)
 - Adopted by the village as a hunter to earn keep
 - True nature is revealed gradually through the story
+
+## Why This Works For The Native Build
+
+- The lore is built around a grounded third-person prolog, so the new Godot camera and movement model can stay close to the Gothic reference.
+- Grauweiler functions as the first playable social hub, which keeps dialogue, trading, and quest setup tightly focused.
+- The three realms provide long-term scale, but the first native slice only needs enough world context to make the prolog and Aether escalation believable.
 
 ## Central Conflict
 

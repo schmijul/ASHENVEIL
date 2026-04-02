@@ -1,278 +1,195 @@
-# ASHENVEIL — Task Breakdown for Agentic Coding System
+# ASHENVEIL - Task Breakdown for Native Godot Migration
 
 ## Instructions for AI Agent
 
-You are building a browser-based 3D RPG prototype. Read ALL documents in this directory before starting any task. Each task below is a self-contained unit. Complete them in order. After each task, the result should be testable in the browser.
+You are building a native Godot 4 action RPG vertical slice for Ubuntu. Read all planning docs before starting work. Complete tasks in order. Every task must end in a runnable, reviewable state.
 
-**Rules:**
-- Use React Three Fiber + Zustand + Rapier physics
-- Every component must be in its own file
-- Game state lives in Zustand stores only — no component-local game state
-- All game data (items, NPCs, quests) lives in JSON files in `src/data/`
-- Test after every task. If it doesn't run, fix it before moving on.
+## Rules
+
+- Use Godot 4 and GDScript
+- Keep game state in autoload singletons or dedicated runtime resources, not in ad hoc scene-local variables
+- Keep items, NPCs, quests, enemies, and model mappings in JSON or equivalent data files
+- Every task must be testable in the native project
 - Commit after each completed task
-- Refer to `06_ART_DIRECTION.md` for all visual decisions
-- Refer to `03_GAME_MECHANICS.md` for all gameplay logic
-- Refer to `04_TUTORIAL_DESIGN.md` for quest/level design
+- Refer to `06_ART_DIRECTION.md` for visual decisions
+- Refer to `03_GAME_MECHANICS.md` for gameplay logic
+- Refer to `04_TUTORIAL_DESIGN.md` for quest and level flow
 
----
+## Branch Strategy
 
-## Sprint 1: Foundation (Tasks 1-5)
+- Use one integration branch for the migration
+- Use sub-agent branches per subsystem where parallel work helps
+- Merge only after the task-specific quality gate is met
 
-### Task 1 — Project Setup
-**Goal:** Empty Three.js scene running in browser
-- Initialize Vite + React project
-- Install: three, @react-three/fiber, @react-three/drei, @react-three/rapier, zustand, howler
-- Create basic scene: camera, directional light, ambient light, ground plane
-- Sky gradient matching art direction (midday colors)
-- Distance fog enabled
-- **Verify:** Browser shows a lit ground plane with sky and fog
+## Sprint 1: Native Foundation
 
-### Task 2 — Player Character (Movement)
-**Goal:** Controllable character in the scene
-- Player is a simple capsule mesh for now (placeholder)
-- WASD movement with physics body (Rapier)
-- Third-person camera: orbit behind player, mouse controls rotation, scroll = zoom
-- Camera collision (don't clip through terrain)
-- Walking animation = slight bob (no skeletal animation yet)
-- Sprint with Shift (faster movement, stamina drain later)
-- **Verify:** Player capsule moves around ground plane, camera follows smoothly
+### Task 1 - Godot Project Bootstrap
+Goal: a native Godot project opens on Ubuntu and boots into a placeholder scene.
+- Create the Godot project structure
+- Add startup scene, input map, base settings, and export-friendly folders
+- Set up a simple boot path and debug logging
+- Verify: project opens and runs on Ubuntu without browser dependencies
 
-### Task 3 — Terrain & Forest
-**Goal:** Explorable forest environment
-- Generate terrain: noise-based heightmap, gently rolling hills
-- Terrain texture: vertex colors (green grass, brown paths, gray rocks)
-- Place instanced trees: pine tree = cone on cylinder, oak = sphere on cylinder
-- Tree placement: noise-based density, avoid paths and clearings
-- Grass tufts: instanced small geometry, scattered on terrain
-- Rocks: instanced low-poly rocks, various sizes
-- Apply fog and lighting from art direction
-- **Verify:** Player walks through a Valheim-style forest. Feels atmospheric.
+### Task 2 - Player Controller
+Goal: a grounded third-person player character with movement and collision.
+- Build a `CharacterBody3D`-based player
+- Implement WASD movement, sprinting, gravity, slopes, and interaction
+- Keep the silhouette simple at first if needed, but preserve the final camera framing
+- Verify: player moves and collides correctly in a test scene
 
-### Task 4 — Village Grauweiler
-**Goal:** Walkable village with buildings
-- Create simple building meshes: box base + sloped roof prism
-- Timber-frame look: darker edge lines or vertex color contrast
-- Place buildings according to map layout in `04_TUTORIAL_DESIGN.md`
-- Market square: open area with simple stall meshes
-- Forge: open structure with orange point light (fire)
-- Add details: fence meshes, barrel meshes, lantern meshes with point lights
-- Smoke particles from chimneys (simple billboard particles rising)
-- **Verify:** Village feels like a small inhabited settlement. Player can walk through it.
+### Task 3 - Gothic Camera
+Goal: a low, over-the-shoulder camera that feels like Gothic / Witcher.
+- Implement follow lag, yaw, pitch, zoom, and camera collision
+- Ensure the camera stays close enough to avoid a Pokemon-style read
+- Add combat backoff behavior for spatial awareness
+- Verify: camera feels grounded, smooth, and readable during movement
 
-### Task 5 — Collision & Physics
-**Goal:** Player can't walk through buildings or trees
-- Add colliders to all buildings (box colliders)
-- Add colliders to tree trunks (cylinder colliders)
-- Add colliders to rocks (convex hull or box)
-- Terrain has a trimesh collider
-- Player physics: capsule collider, gravity, slopes
-- **Verify:** Player collides with all world objects properly. No clipping.
+### Task 4 - Terrain
+Goal: a playable terrain blockout with height variation and path readability.
+- Build terrain generation or authored terrain for the prolog map
+- Apply vertex-color-style color logic or equivalent material variation
+- Ensure the terrain supports the forest path, clearings, and village approach
+- Verify: player can walk through a believable natural landscape
 
----
+### Task 5 - Forest
+Goal: an atmospheric forest that matches the reference imagery.
+- Add tree, grass, rock, bush, and log placement
+- Use denser layering and clearer path composition than the browser prototype
+- Keep the forest warm, readable, and not overly geometric in presentation
+- Verify: the forest immediately reads as the intended art direction
 
-## Sprint 2: Core Systems (Tasks 6-10)
+## Sprint 2: World and Collision
 
-### Task 6 — Game State Store
-**Goal:** Central game state management
-- Create Zustand stores per `05_TECH_SPEC.md`:
-  - `gameStore.js` — player stats, world flags
-  - `inventoryStore.js` — items, equipment
-  - `questStore.js` — active/completed quests
-  - `factionStore.js` — reputation values
-- Player stats: health, maxHealth, stamina, maxStamina, corruption, gold
-- **Verify:** State updates correctly when modified (console.log tests)
+### Task 6 - Village Grauweiler
+Goal: a walkable village with strong silhouette and social space.
+- Build the village layout, buildings, market square, forge, and props
+- Add smoke, firelight, lanterns, and other small environmental cues
+- Verify: player can walk through the village and identify the main landmarks
 
-### Task 7 — HUD
-**Goal:** Health, stamina, corruption bars on screen
-- React overlay (not 3D): fixed position UI
-- Health bar: red, bottom-left
-- Stamina bar: green, below health. Fades when full, appears when draining.
-- Corruption bar: purple, only visible when > 0%
-- Gold counter: bottom-right, small icon + number
-- Minimap: stretch goal, skip if complex
-- All bars read from Zustand store
-- **Verify:** Bars display and update when state changes
+### Task 7 - World Collision
+Goal: the player cannot walk through important world geometry.
+- Add collision bodies for terrain, buildings, trees, rocks, and main props
+- Tune collision so traversal feels stable and natural
+- Verify: the player stays within the world space without clipping
 
-### Task 8 — Combat System (Melee)
-**Goal:** Player can attack and take damage
-- Light attack: left click. Swing animation (rotate weapon placeholder). Sphere-cast hit detection.
-- Heavy attack: hold right click + release. Slower, more damage, staggers.
-- Block: tap right click. Damage reduction while held, stamina drain.
-- Dodge roll: spacebar. Quick movement in input direction, i-frames.
-- Stamina: all actions cost stamina. Regen when idle.
-- Damage numbers: small floating text on hit (optional but nice).
-- Player hit: flash red, brief knockback.
-- **Verify:** Player can perform all combat actions against a test dummy
+### Task 8 - Game State
+Goal: central runtime state for player, world, inventory, quests, and factions.
+- Create autoload singletons for the core state domains
+- Expose a stable API for gameplay systems and UI
+- Verify: state updates are visible from debug output or a test scene
 
-### Task 9 — Enemy AI (Boar)
-**Goal:** Boars that can be hunted
-- Boar mesh: low-poly (elongated box body, small cone legs, triangle tusks)
-- AI states: Idle (wander randomly), Alert (player within 15m), Chase (run at player), Attack (charge, 1-2 sec windup), Flee (low health)
-- Boar stats from `04_TUTORIAL_DESIGN.md`
-- Spawn 5-6 boars in the forest hunting area
-- Death: ragdoll or fall-over animation, drop loot (meat, pelt)
-- Loot: press E near dead boar to collect
-- **Verify:** Player can find, fight, kill boars and collect loot
+### Task 9 - HUD
+Goal: health, stamina, corruption, and gold are visible in a native UI.
+- Build the HUD as Godot Control scenes
+- Bind to the runtime state layer
+- Keep the UI small, unobtrusive, and readable
+- Verify: bars update when state changes
 
-### Task 10 — Inventory System
-**Goal:** Inventory screen with items
-- Press I/Tab to open inventory
-- Grid layout: 6 columns, scrollable
-- Items show: icon (colored rectangle with letter for prototype), name, quantity
-- Equipment panel: slots for weapon, armor, etc.
-- Drag to equip (or click to equip)
-- Item data loaded from `src/data/items.json`
-- Weight system: total weight shown, movement slows if overweight
-- **Verify:** Picked up boar meat/pelts appear in inventory. Can equip a weapon.
+### Task 10 - Combat
+Goal: the player can attack, block, dodge, and take damage.
+- Implement melee actions and stamina costs
+- Add a simple test dummy target
+- Keep the camera and player movement compatible with combat feel
+- Verify: all combat actions work in a test scene
 
----
+## Sprint 3: Hunt Loop
 
-## Sprint 3: Interaction (Tasks 11-15)
+### Task 11 - Boar AI
+Goal: boars can wander, aggro, chase, attack, flee, and die.
+- Build boar behavior and death handling
+- Add loot drops for meat and pelts
+- Verify: player can find and defeat boars
 
-### Task 11 — NPC System
-**Goal:** NPCs you can talk to
-- NPC mesh: colored capsule with simple features (prototype)
-- NPCs placed per village layout
-- Name label floating above NPC (drei Text)
-- Walk up + press E = open dialogue
-- NPCs face player when in conversation
-- **Verify:** Player can approach and interact with NPCs, names visible
+### Task 12 - Inventory
+Goal: picked-up items appear in a usable inventory.
+- Build inventory UI, equipment slots, and weight tracking
+- Load item data from the shared JSON files
+- Verify: boar loot appears and gear can be equipped
 
-### Task 12 — Dialogue System
-**Goal:** Branching dialogue from JSON
-- Dialogue box: bottom of screen, semi-transparent panel
-- NPC name + text displayed, typewriter effect
-- Player response options listed as clickable buttons
-- Dialogue data from `src/data/npcs.json`
-- Conditions: check quest flags, faction rep, inventory items
-- Actions: start quest, give item, open trade, change reputation
-- **Verify:** Full dialogue tree with Maren works, including quest assignment
+### Task 13 - NPC System
+Goal: NPCs can be placed, named, and interacted with.
+- Add Maren, Korvin, Hagen, Lotte, and Ren as native NPCs
+- Show floating labels or an equivalent readable name presentation
+- Verify: the player can approach and interact with NPCs
 
-### Task 13 — Trading System
-**Goal:** Buy and sell items with Korvin
-- Trade screen: split view (player inventory | merchant inventory)
-- Prices from items.json
-- Buy: click item in merchant inventory, pay gold, item moves to player
-- Sell: click item in player inventory, receive gold, item moves to merchant
-- Price display on hover
-- Gold deducted/added to player store
-- **Verify:** Sell boar meat to Korvin, receive gold, buy hunting knife
+### Task 14 - Dialogue
+Goal: branching dialogue works from the JSON data.
+- Build dialogue UI and branching node evaluation
+- Support conditions, quest flags, inventory checks, and actions
+- Verify: Maren's opening conversation works end to end
 
-### Task 14 — Quest System
-**Goal:** Trackable quests with objectives
-- Quest definitions in `src/data/quests.json`
-- Quest structure: id, title, description, objectives[], rewards
-- Objective types: kill (enemy, count), collect (item, count), talk (npc), visit (location)
-- HUD: small quest tracker top-right showing active quest + current objective
-- Quest log screen (J): list of active and completed quests
-- Quest completion: reward gold/items, set world flags
-- **Verify:** "Hunt boars" quest tracks kills, completes when 3 pelts collected
+### Task 15 - Trading
+Goal: the player can buy and sell items with Korvin.
+- Build the trade UI and gold exchange logic
+- Use item prices from the data layer
+- Verify: meat can be sold and a weapon can be bought
 
-### Task 15 — Tutorial Quest Chain
-**Goal:** Full Phase 1 + Phase 2 playable
-- Implement quest: "Maren's Request" — hunt 3 boars, get pelts
-- Implement quest: "Sell to Korvin" — sell meat, earn gold
-- Implement quest: "Gear Up" — buy weapon from Hagen
-- Optional quest: "Lotte's Herbs" — collect 3 herbs, reward potions
-- Optional quest: "Hagen's Tusk" — bring boar tusk, reward weapon upgrade
-- Optional: "Ren's Training" — sparring encounter, teaches heavy attack
-- Quest flow triggers correctly: completing one unlocks the next
-- **Verify:** Full tutorial Phase 1 + Phase 2 playable start to finish
+## Sprint 4: Tutorial Completion
 
----
+### Task 16 - Quest System
+Goal: active quests, objectives, and completion states are tracked.
+- Build quest state, objective checks, and quest log UI
+- Support kill, collect, talk, and visit objectives
+- Verify: "Hunt boars" tracks and completes correctly
 
-## Sprint 4: Aether & Finale (Tasks 16-20)
+### Task 17 - Tutorial Quest Chain
+Goal: the opening play loop is fully playable.
+- Wire Maren's request, Korvin's sale, Hagen's gear step, and optional side content
+- Make sure quest flow unlocks in the intended order
+- Verify: the Phase 1 and Phase 2 tutorial loop can be finished start to finish
 
-### Task 16 — Aether Crystal Clearing
-**Goal:** New area with Aether visuals
-- Deep forest area beyond normal hunting grounds (new zone)
-- Crystal meshes: octahedrons + elongated prisms, emissive cyan material
-- Point lights on crystals, pulsing intensity (sine wave)
-- Ground corruption: vertex colors transition to gray/purple near crystals
-- Floating particle motes (small spheres, slow orbit)
-- Ambient sound: crystalline hum (synthesized or placeholder)
-- **Verify:** Area is visually distinct and atmospheric. Aether feels alien and dangerous.
+### Task 18 - Aether Clearing
+Goal: a visually distinct crystal zone exists beyond the forest.
+- Build the crystal clearing, emissive effects, and corrupted terrain read
+- Make the area feel dangerous and different from the safe forest
+- Verify: the zone is immediately readable as the first Aether space
 
-### Task 17 — Aether Pulse Ability
-**Goal:** Player's first magic ability
-- Press Q: Aether Pulse
-- Visual: expanding cyan sphere from player hands, fades quickly
-- Effect: knockback + stagger to enemies in range (5m radius)
-- Cost: fills corruption meter by 5% per use
-- Corruption visual: screen edges get subtle purple tint
-- Corruption decay: 1% per 10 seconds when not using Aether
-- Corruption > 50%: chromatic aberration post-processing increases
-- **Verify:** Aether Pulse knocks back enemies, corruption meter fills and decays
+### Task 19 - Aether Pulse
+Goal: the player gains the first magic ability.
+- Bind Aether Pulse to Q
+- Add knockback, stagger, and corruption increase
+- Verify: the ability changes combat and visibly affects enemies
 
-### Task 18 — Corrupted Wolf (Mini-Boss)
-**Goal:** Boss encounter requiring Aether
-- Corrupted Wolf mesh: wolf shape with crystal growths (elongated prisms attached to back)
-- Glowing cyan eyes (emissive)
-- AI: circles player, fast lunge attacks, high damage
-- Special: takes reduced damage unless staggered with Aether Pulse first
-- Stats from `04_TUTORIAL_DESIGN.md`
-- Encounter trigger: approach crystal clearing after Phase 2 quest completion
-- Scripted: Maren sends you to investigate noise
-- **Verify:** Fight requires using Aether Pulse strategically. Feels challenging but fair.
+### Task 20 - Corrupted Wolf
+Goal: a mini-boss encounter that teaches Aether use.
+- Build the corrupted wolf enemy and encounter script
+- Require stagger or pressure management to win cleanly
+- Verify: the fight feels like a real escalation above boars
 
-### Task 19 — Village Destruction Sequence
-**Goal:** Phase 4 story event
-- Trigger: return to village after wolf kill
-- Visual: smoke particles rising from village direction while still in forest
-- Arriving at village: 2 buildings on fire (fire particles + orange light), 1 collapsed
-- Kernwall soldiers (3-4): standing in village, armored, hostile if attacked
-- Scattered objects: overturned cart, broken barrels, items on ground
-- Maren: standing near village entrance, delivers final dialogue
-- Player choice: fight/sneak/talk (implement at least fight path)
-- After sequence: quest flag set, NPCs removed, village stays destroyed
-- **Verify:** Sequence triggers correctly, village visually destroyed, emotional impact
+## Sprint 5: Finale and Polish
 
-### Task 20 — Prolog Complete
-**Goal:** End screen and crossroads
-- After village destruction dialogue: player walks to crossroads
-- Crossroads: path splits three ways, signs pointing to Kernwall/Flimmermoor/Hohensang
-- "PROLOG COMPLETE" overlay screen
-- Stats shown: time played, boars killed, gold earned, corruption peak
-- "Thank you for playing the prototype" message
-- Option to restart
-- **Verify:** Complete playthrough from wake-up to crossroads works without crashes
+### Task 21 - Village Destruction
+Goal: the story pivot from safe village to hostile world is playable.
+- Build the smoke, fire, soldier presence, and destroyed village state
+- Handle the sequence transition cleanly
+- Verify: the event triggers and the village becomes visibly destroyed
 
----
+### Task 22 - Prolog Complete
+Goal: the slice ends at the crossroads with a clear completion state.
+- Add the crossroads scene and completion overlay
+- Show basic run stats if useful
+- Verify: the playthrough can end without crashes
 
-## Sprint 5: Polish (Tasks 21-25)
+### Task 23 - Audio
+Goal: ambient forest, village, combat, and Aether audio are present.
+- Add looping ambience, combat feedback, and UI audio
+- Verify: the world feels less silent and more alive
 
-### Task 21 — Audio
-- Ambient forest soundscape (looping)
-- Footstep sounds (varies on terrain type if possible)
-- Combat sounds: swing, hit, block
-- Aether sounds: pulse, crystal hum, corruption crackle
-- UI sounds: inventory open/close, buy/sell, quest complete
-- Music: simple ambient track for village, tension track for combat (can be generated/royalty-free)
+### Task 24 - Main Menu and Save Load
+Goal: the player can start, resume, and save the native game.
+- Build main menu, pause flow, save files, and load behavior
+- Verify: native saves persist across restart
 
-### Task 22 — Main Menu
-- Title screen: "ASHENVEIL" with atmospheric background
-- New Game button
-- Controls reference
-- Settings: volume, graphics quality toggle (shadow resolution, particle density)
+### Task 25 - Final Polish and Playtest
+Goal: the vertical slice feels cohesive and shippable.
+- Tune lighting, camera, combat feel, and readability
+- Fix collision, quest, and UI edge cases
+- Verify: one full playthrough on Ubuntu works from start to finish
 
-### Task 23 — Save/Load
-- Auto-save at quest milestones
-- Manual save from pause menu
-- LocalStorage serialization of full game state
-- Load from main menu
+## Quality Gates
 
-### Task 24 — Visual Polish
-- Bloom post-processing (subtle, mainly Aether)
-- God rays through trees (simple screen-space effect)
-- Improved particle effects
-- Better tree/building models if time allows
-- Vignette + color grading
-
-### Task 25 — Playtesting & Bug Fixes
-- Full playthrough test
-- Fix collision issues
-- Balance combat (damage, health, stamina values)
-- Fix quest logic edge cases
-- Performance optimization (instancing, culling, draw call reduction)
-- Browser compatibility check (Chrome, Firefox, Safari)
+- Every task must be runnable on Ubuntu before merge
+- Every task must include a test or smoke check appropriate to that system
+- No merge with failing checks
+- No task is done until the main slice remains playable after the merge
+- Native project docs and runtime assumptions must stay aligned

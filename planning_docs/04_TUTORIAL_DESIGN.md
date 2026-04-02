@@ -1,116 +1,116 @@
-# ASHENVEIL — Tutorial / Prolog Design
+# ASHENVEIL - Tutorial / Prolog Design
+
+The tutorial is the first native Godot vertical slice. It must teach the camera, movement, combat, interaction, inventory, trading, the first Aether ability, and the story stakes without feeling like a system checklist.
 
 ## Setting: Village Grauweiler
 
-A small hunter/farmer village at the edge of a dense forest. ~15 buildings. Surrounded by fields on one side, thick forest on the other, faint Aether crystal formations visible on distant hills.
+Grauweiler is a small hunter/farmer village at the edge of a dense forest. It has about 15 buildings, open fields on one side, and thick forest with distant Aether crystal formations on the other.
 
 ## Pre-Prolog
 
-Player wakes up on a bed inside a small house. The village elder (Maren) explains: "We found you in the Aether storm three days ago. You were barely alive. You can stay — but you earn your keep. We need hunters."
+The player wakes up in a bed inside a small house. Maren explains: "We found you in the Aether storm three days ago. You were barely alive. You can stay, but you earn your keep. We need hunters."
 
-**Player learns:** Basic movement (WASD), camera control (mouse), interact (E).
+The player learns:
+- Movement: WASD
+- Camera: mouse
+- Interact: E
 
-## Phase 1 — The Hunt (5-10 min)
+## Phase 1 - The Hunt
 
 ### Objective
-Maren gives you a simple hunting knife and sends you into the forest. "Bring back 3 boar pelts. Sell the meat to Korvin at the market."
+Maren gives the player a hunting knife and sends them into the forest. "Bring back 3 boar pelts. Sell the meat to Korvin at the market."
 
 ### Gameplay Taught
-- **Movement + Camera** — navigate forest paths
-- **Combat basics** — fight boars (easy enemies, 2-3 hits to kill, slow attacks)
-- **Looting** — pick up drops (meat, pelts) from killed animals
-- **Environmental awareness** — forest layout, landmarks
+- Movement and camera control in a grounded third-person view
+- Combat basics against boars
+- Loot pickup from killed animals
+- Reading the forest path and landmarks
 
 ### Level Design Notes
-- Forest is semi-linear for this phase: clear path from village to hunting grounds
-- 5-6 boars spread across a small area
-- One boar is slightly tougher (scarred boar) — optional mini-challenge
-- A deer runs away if you approach — teaches that not everything fights back
-- Small stream serves as natural boundary
+- The forest is semi-linear for this phase
+- Five to six boars are spread through a compact hunting area
+- One scarred boar is a slightly tougher optional challenge
+- A deer runs away if approached to show that not everything is hostile
+- A stream acts as a soft boundary
 
 ### Enemies
 | Enemy | HP | Damage | Behavior |
 |-------|-----|--------|----------|
 | Boar | 30 | 5 per hit | Charges when aggro'd, 1-2 second wind-up |
-| Scarred Boar | 50 | 8 per hit | Faster charge, can chain 2 attacks |
+| Scarred Boar | 50 | 8 per hit | Faster charge, can chain two attacks |
 
-## Phase 2 — The Village (5-10 min)
+## Phase 2 - The Village
 
 ### Objective
-Return to village. Sell meat to Korvin the trader. Buy a better weapon or armor piece with the gold.
+Return to village. Sell meat to Korvin. Buy a better weapon or armor piece with the gold.
 
 ### Gameplay Taught
-- **Inventory management** — open inventory, see items, equip gear
-- **Trading** — buy/sell interface with Korvin
-- **NPC dialogue** — talk to villagers, optional flavor dialogue
-- **Gold economy** — first transaction, understanding prices
+- Inventory management
+- Trading with Korvin
+- NPC dialogue and flavor interactions
+- Gold economy and item pricing
 
-### Key NPCs in Grauweiler
+### Key NPCs
 | NPC | Role | Location | Interaction |
 |-----|------|----------|-------------|
 | Maren | Village elder | Her house | Quest giver, exposition |
 | Korvin | Trader | Market stall | Buy/sell |
 | Hagen | Blacksmith | Forge | Sells weapons, hints at Aether smithing |
-| Lotte | Herbalist | Garden | Side quest: collect 3 herbs. Reward: health potion |
-| Ren | Hunter | Forest edge | Combat tips, teaches heavy attack if asked |
+| Lotte | Herbalist | Garden | Optional herb quest, reward potions |
+| Ren | Hunter | Forest edge | Combat tips, teaches heavy attack |
 
 ### Optional Side Content
-- **Lotte's Herbs:** Collect 3 specific herbs from the forest edge. Reward: 2 health potions + herbalism basics. Teaches consumable usage.
-- **Hagen's Request:** Bring him a boar tusk. Reward: reinforced hunting knife (damage upgrade). Teaches crafting concept.
-- **Ren's Challenge:** Spar with Ren. Practice combat in safe environment. He teaches the heavy attack move.
+- Lotte's Herbs: collect three herbs, reward potions and healing basics
+- Hagen's Request: bring a boar tusk, reward a reinforced hunting knife
+- Ren's Challenge: spar to learn the heavy attack
 
-## Phase 3 — Aether Awakening (5 min)
+## Phase 3 - Aether Awakening
 
 ### Trigger
-After selling meat to Korvin (Phase 2 complete), Maren asks you to check on a noise in the forest. "Something spooked the animals last night."
+After selling meat to Korvin, Maren asks the player to check on a noise in the forest.
 
 ### Sequence
-1. Player goes deeper into forest than before (new area unlocks)
-2. Finds a small clearing with an **Aether Crystal Cluster** — glowing, pulsing
-3. Cutscene/scripted moment: Player approaches, hands start glowing
-4. Player touches crystal — flash of light, learns **Aether Pulse** ability
-5. A **Corrupted Wolf** attacks — mutated, Aether crystals growing from its body
-6. Player must use Aether Pulse to stagger it, then finish with melee
-7. After kill: corruption meter appears briefly (first fill, small amount)
+1. The player goes deeper into the forest than before
+2. They find an Aether crystal clearing, glowing and pulsing
+3. The player approaches and their hands start glowing
+4. They touch the crystal and learn Aether Pulse
+5. A corrupted wolf attacks
+6. The player must stagger it with Aether Pulse and finish it with melee
+7. Corruption appears as a visible cost
 
 ### Gameplay Taught
-- **Aether Pulse** ability (hotkey: Q)
-- **Corruption meter** — visual feedback that using Aether has a cost
-- **Corrupted enemies** — tougher than normal animals, Aether-infused
+- Aether Pulse on Q
+- Corruption meter and its cost
+- Corrupted enemies as a new threat tier
 
 ### Enemy
 | Enemy | HP | Damage | Behavior | Special |
 |-------|-----|--------|----------|---------|
-| Corrupted Wolf | 80 | 12 per hit | Fast lunges, circles player | Must be staggered with Aether Pulse first, otherwise blocks halve damage taken |
+| Corrupted Wolf | 80 | 12 per hit | Fast lunges, circles player | Must be staggered with Aether Pulse first |
 
-## Phase 4 — The Destruction (5 min)
+## Phase 4 - The Destruction
 
 ### Trigger
-Returning to village after defeating the Corrupted Wolf.
+Return to village after defeating the corrupted wolf.
 
 ### Sequence
-1. Player exits forest — sees smoke rising from Grauweiler
-2. Approaching: village is under attack
-3. **Attackers:** Kernwall patrol soldiers (3-4 soldiers in the village)
-4. They're searching for the Aether Crystal source (they detected the player's activation)
-5. Player sees: Maren confronting the patrol leader, Korvin's stall overturned, one house burning
-6. **Player choice moment:**
-   - **Fight** the soldiers (hard but possible — teaches that consequences exist)
-   - **Sneak** around the edge (stealth tutorial moment)
-   - **Talk** to the patrol leader (dialogue option, but they're hostile)
-7. Regardless of approach: the village is destroyed. Key NPCs scatter.
-8. Maren's last words: "Go. Find answers. Kernwall, Flimmermoor, Hohensang — someone knows what you are."
+1. The player exits the forest and sees smoke rising from Grauweiler
+2. Approaching the village reveals a Kernwall patrol
+3. The patrol is searching for the Aether source they detected
+4. Maren confronts the leader, Korvin's stall is overturned, and one house burns
+5. The player can fight, sneak, or talk, but the village falls regardless
+6. Maren tells the player to leave and find answers
 
 ### Aftermath
-- Player stands at a crossroads sign. Three directions. Three realms.
-- **PROLOG COMPLETE** screen
-- Open world begins (out of prototype scope)
+- The player reaches a crossroads with three directions
+- PROLOG COMPLETE appears
+- The open world begins after the vertical slice
 
 ### Gameplay Taught
-- **Stakes:** Your actions drew attention. People got hurt.
-- **Faction introduction:** Kernwall is aggressive, but they had a reason.
-- **Player agency:** Multiple approaches to the same situation.
-- **Motivation:** Find out what you are, why the Aether responds to you.
+- Stakes and consequence
+- Faction introduction
+- Player agency inside a scripted event
+- Motivation to continue the main story
 
 ## Prototype Map Layout
 
@@ -129,9 +129,9 @@ Returning to village after defeating the Corrupted Wolf.
                             |
                     [Village Entrance]
                             |
-                    [Crossroads — 3 directions]
+                    [Crossroads - 3 directions]
 ```
 
 ## Estimated Play Time
-- Speedrun (main objectives only): ~15 minutes
-- Full exploration (all side content): ~30 minutes
+- Speedrun of main objectives: about 15 minutes
+- Full exploration including side content: about 30 minutes
