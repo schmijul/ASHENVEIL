@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import questsData from "../data/quests.json" with { type: "json" };
+import { useGameStore } from "./gameStore";
+import { useInventoryStore } from "./inventoryStore";
 
 const questCatalog = Object.fromEntries(
   questsData.quests.map((quest) => [quest.id, quest]),
@@ -73,6 +75,41 @@ const cloneObjectiveState = (objective) => ({
   ...objective,
 });
 
+const activateUnlockedQuests = (nextQuests, nextActiveIds, quest) => {
+  (quest.rewards?.unlocks ?? []).forEach((questId) => {
+    const unlockedQuest = nextQuests[questId];
+    if (!unlockedQuest || unlockedQuest.status === "completed") {
+      return;
+    }
+
+    nextQuests[questId] = {
+      ...unlockedQuest,
+      status: "active",
+      startedAt: unlockedQuest.startedAt ?? Date.now(),
+    };
+    nextActiveIds.add(questId);
+  });
+};
+
+const applyQuestCompletionEffects = (quest) => {
+  if (!quest) {
+    return;
+  }
+
+  const rewards = quest.rewards ?? {};
+  if (rewards.gold) {
+    useGameStore.getState().modifyGold(rewards.gold);
+  }
+
+  (rewards.items ?? []).forEach((itemId) => {
+    useInventoryStore.getState().addItem(itemId, 1);
+  });
+
+  if (quest.onComplete?.setFlag) {
+    useGameStore.getState().setQuestFlag(quest.onComplete.setFlag, true);
+  }
+};
+
 export const useQuestStore = create((set, get) => ({
   quests: initialQuests,
   activeQuestIds: questsData.quests
@@ -131,6 +168,7 @@ export const useQuestStore = create((set, get) => ({
 
         if (questCompleted && quest.status !== "completed") {
           questsChanged = true;
+          applyQuestCompletionEffects(quest);
           nextQuests[questId] = {
             ...quest,
             status: "completed",
@@ -138,6 +176,7 @@ export const useQuestStore = create((set, get) => ({
             objectives: nextObjectives.map(cloneObjectiveState),
           };
           nextActiveIds.delete(questId);
+          activateUnlockedQuests(nextQuests, nextActiveIds, quest);
           continue;
         }
 
@@ -174,16 +213,23 @@ export const useQuestStore = create((set, get) => ({
         return state;
       }
 
-      return {
-        quests: {
-          ...state.quests,
-          [questId]: {
-            ...quest,
-            status: "completed",
-            completedAt: Date.now(),
-          },
+      applyQuestCompletionEffects(quest);
+      const nextQuests = {
+        ...state.quests,
+        [questId]: {
+          ...quest,
+          status: "completed",
+          completedAt: Date.now(),
         },
-        activeQuestIds: state.activeQuestIds.filter((id) => id !== questId),
+      };
+      const nextActiveIds = new Set(
+        state.activeQuestIds.filter((id) => id !== questId),
+      );
+      activateUnlockedQuests(nextQuests, nextActiveIds, quest);
+
+      return {
+        quests: nextQuests,
+        activeQuestIds: Array.from(nextActiveIds),
         completedQuestIds: Array.from(new Set([...state.completedQuestIds, questId])),
       };
     }),

@@ -25,6 +25,7 @@ export default function InputManager() {
     const {
       setControlState,
       setCameraOrbit,
+      closeTrade,
       resetControls,
       closeInventory,
       startLightAttack,
@@ -37,20 +38,20 @@ export default function InputManager() {
 
     const onKeyDown = (event) => {
       const dialogueStore = useDialogueStore.getState();
-      const inventoryOpen = useGameStore.getState().ui.inventoryOpen;
+      const { inventoryOpen, tradeOpen } = useGameStore.getState().ui;
 
       if (event.code === "KeyI" || event.code === "Tab") {
         event.preventDefault();
         if (event.repeat) {
           return;
         }
-        if (!dialogueStore.isOpen) {
+        if (!dialogueStore.isOpen && !tradeOpen) {
           toggleInventory();
         }
         return;
       }
 
-      if ((dialogueStore.isOpen || inventoryOpen) && event.code !== "Escape") {
+      if ((dialogueStore.isOpen || inventoryOpen || tradeOpen) && event.code !== "Escape") {
         return;
       }
 
@@ -82,7 +83,10 @@ export default function InputManager() {
       }
 
       if (event.code === "KeyE") {
-        if (useGameStore.getState().ui.inventoryOpen) {
+        if (
+          useGameStore.getState().ui.inventoryOpen ||
+          useGameStore.getState().ui.tradeOpen
+        ) {
           return;
         }
         const dialogueStore = useDialogueStore.getState();
@@ -96,6 +100,11 @@ export default function InputManager() {
       }
 
       if (event.code === "Escape") {
+        if (useGameStore.getState().ui.tradeOpen) {
+          closeTrade();
+          return;
+        }
+
         if (useGameStore.getState().ui.inventoryOpen) {
           closeInventory();
           return;
@@ -108,7 +117,8 @@ export default function InputManager() {
     const onPointerDown = (event) => {
       if (
         useDialogueStore.getState().isOpen ||
-        useGameStore.getState().ui.inventoryOpen
+        useGameStore.getState().ui.inventoryOpen ||
+        useGameStore.getState().ui.tradeOpen
       ) {
         return;
       }
@@ -132,7 +142,11 @@ export default function InputManager() {
       }
     };
     const onPointerMove = (event) => {
-      if (!rotatingRef.current || useGameStore.getState().ui.inventoryOpen) {
+      if (
+        !rotatingRef.current ||
+        useGameStore.getState().ui.inventoryOpen ||
+        useGameStore.getState().ui.tradeOpen
+      ) {
         return;
       }
 
@@ -143,7 +157,10 @@ export default function InputManager() {
       });
     };
     const onWheel = (event) => {
-      if (useGameStore.getState().ui.inventoryOpen) {
+      if (
+        useGameStore.getState().ui.inventoryOpen ||
+        useGameStore.getState().ui.tradeOpen
+      ) {
         return;
       }
       event.preventDefault();

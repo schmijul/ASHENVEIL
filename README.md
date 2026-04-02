@@ -10,11 +10,13 @@ Browser-based 3D action RPG prototype built with React, React Three Fiber, Rapie
 - Task 3 complete: procedural terrain, forest placement, grass, rocks, and path-aware foliage rules
 - Task 4 complete: village layout, buildings, market square, forge, props, and smoke effects
 - Task 5 complete: terrain, tree, rock, and building collision bodies integrated for player traversal
-- Unit tests cover the current store layer
-- Unit tests also cover player movement math and camera math
-- Unit tests also cover terrain generation parameters
-- Unit tests also cover village layout placement
-- Unit tests also cover collision profile dimensions
+- Task 8 complete: melee combat actions, stamina costs, dodge i-frames, and a training dummy target
+- Task 9 complete: boar AI, forest spawns, loot drops, and hunt progression hooks
+- Task 11 complete: NPC placements, proximity prompts, and village interaction targets
+- Task 12 complete: JSON-driven dialogue, node conditions, quest/item side effects, and Maren's opening flow
+- Task 10 complete: inventory overlay, equipment slots, item-driven gear handling, and overweight movement slowdown
+- Task 13 complete: Korvin trading, merchant stock state, gold exchange, and quest-linked sell/buy events
+- Unit tests cover the store layer, dialogue engine, trade flow, player movement math, camera math, terrain generation, village layout placement, NPC placement, and collision profiles
 
 ## Stack
 
@@ -39,10 +41,14 @@ npm run test
 ```text
 src/
   components/
+    entities/
+    systems/
+    ui/
     world/
   data/
   store/
-planning_docs/
+  utils/
+planning_docs/   # local only, not for sanitized GitHub branches
 ```
 
 ## Branch Strategy
@@ -54,4 +60,6 @@ planning_docs/
 ## Notes
 
 - Runtime game data lives in `src/data/`.
+- Browser-accessible debug handles are exposed through `window.__ASHENVEIL__`.
+- Dialogue, inventory, and trading now run fully through Zustand-backed runtime stores.
 - Detailed planning and narrative documents remain local in `planning_docs/` and should not be published to GitHub in online tracking branches.

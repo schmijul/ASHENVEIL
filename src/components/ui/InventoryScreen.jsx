@@ -29,6 +29,7 @@ const getItemTone = (definition) =>
 
 export default function InventoryScreen() {
   const inventoryOpen = useGameStore((state) => state.ui.inventoryOpen);
+  const tradeOpen = useGameStore((state) => state.ui.tradeOpen);
   const gold = useGameStore((state) => state.player.gold);
   const {
     inventory,
@@ -60,7 +61,7 @@ export default function InventoryScreen() {
   );
   const isOverweight = totalWeight > capacity;
 
-  if (!inventoryOpen) {
+  if (!inventoryOpen || tradeOpen) {
     return null;
   }
 

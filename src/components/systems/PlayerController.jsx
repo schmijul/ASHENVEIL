@@ -15,7 +15,7 @@ export default function PlayerController({ bodyRef }) {
     const { controls, camera, combat, setPlayerRotation } = useGameStore.getState();
     const dialogueOpen = useDialogueStore.getState().isOpen;
     const inventoryState = useInventoryStore.getState();
-    const inventoryOpen = useGameStore.getState().ui.inventoryOpen;
+    const { inventoryOpen, tradeOpen } = useGameStore.getState().ui;
     const { velocity } = resolvePlayerVelocity({
       input: controls,
       cameraYaw: camera.yaw,
@@ -24,7 +24,7 @@ export default function PlayerController({ bodyRef }) {
       totalWeight: inventoryState.totalWeight,
       capacity: inventoryState.capacity,
     });
-    let nextVelocity = dialogueOpen || inventoryOpen
+    let nextVelocity = dialogueOpen || inventoryOpen || tradeOpen
       ? { x: 0, y: 0, z: 0 }
       : velocity;
 
@@ -60,7 +60,7 @@ export default function PlayerController({ bodyRef }) {
       true,
     );
 
-    if (!dialogueOpen && !inventoryOpen && horizontalSpeed > 0.01) {
+    if (!dialogueOpen && !inventoryOpen && !tradeOpen && horizontalSpeed > 0.01) {
       setPlayerRotation(Math.atan2(nextVelocity.x, nextVelocity.z));
     }
   });

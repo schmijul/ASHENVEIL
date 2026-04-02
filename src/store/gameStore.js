@@ -56,6 +56,8 @@ const initialCameraState = {
 
 const initialUiState = {
   inventoryOpen: false,
+  tradeOpen: false,
+  activeMerchantId: null,
 };
 
 const initialCombatState = {
@@ -151,6 +153,25 @@ export const useGameStore = create((set) => ({
       ui: {
         ...state.ui,
         inventoryOpen: false,
+      },
+    })),
+  openTrade: (merchantId) =>
+    set((state) => ({
+      controls: { ...initialControlsState },
+      ui: {
+        ...state.ui,
+        inventoryOpen: false,
+        tradeOpen: Boolean(merchantId),
+        activeMerchantId: merchantId,
+      },
+    })),
+  closeTrade: () =>
+    set((state) => ({
+      controls: { ...initialControlsState },
+      ui: {
+        ...state.ui,
+        tradeOpen: false,
+        activeMerchantId: null,
       },
     })),
   setCombatState: (patch) =>

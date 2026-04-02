@@ -3,6 +3,7 @@ import { Physics } from "@react-three/rapier";
 import DialogueBox from "./components/ui/DialogueBox";
 import InventoryScreen from "./components/ui/InventoryScreen";
 import InteractionPrompt from "./components/ui/InteractionPrompt";
+import TradeScreen from "./components/ui/TradeScreen";
 import Scene from "./components/world/Scene";
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
         <InteractionPrompt />
         <DialogueBox />
         <InventoryScreen />
+        <TradeScreen />
       </div>
     </div>
   );

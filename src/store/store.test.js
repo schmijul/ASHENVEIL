@@ -6,6 +6,7 @@ import { useFactionStore } from "./factionStore";
 import { useGameStore } from "./gameStore";
 import { useInventoryStore } from "./inventoryStore";
 import { useQuestStore } from "./questStore";
+import { useTradeStore } from "./tradeStore";
 
 const resetStores = () => {
   useDialogueStore.getState().resetDialogue();
@@ -13,6 +14,7 @@ const resetStores = () => {
   useInventoryStore.getState().clearInventory();
   useQuestStore.getState().resetAllQuests();
   useFactionStore.getState().resetFactions();
+  useTradeStore.getState().resetTradeStore();
 };
 
 afterEach(() => {
@@ -59,6 +61,18 @@ describe("gameStore", () => {
 
     gameStore.closeInventory();
     expect(useGameStore.getState().ui.inventoryOpen).toBe(false);
+  });
+
+  it("opens and closes the active merchant trade state", () => {
+    const gameStore = useGameStore.getState();
+
+    gameStore.openTrade("korvin");
+    expect(useGameStore.getState().ui.tradeOpen).toBe(true);
+    expect(useGameStore.getState().ui.activeMerchantId).toBe("korvin");
+
+    gameStore.closeTrade();
+    expect(useGameStore.getState().ui.tradeOpen).toBe(false);
+    expect(useGameStore.getState().ui.activeMerchantId).toBeNull();
   });
 
   it("starts light and heavy combat actions while spending stamina", () => {
@@ -156,6 +170,8 @@ describe("questStore", () => {
 
     expect(questState.status).toBe("completed");
     expect(useQuestStore.getState().completedQuestIds).toContain("hunt_boars");
+    expect(useQuestStore.getState().activeQuestIds).toContain("sell_to_korvin");
+    expect(useGameStore.getState().world.questFlags.boars_hunted).toBe(true);
   });
 });
 

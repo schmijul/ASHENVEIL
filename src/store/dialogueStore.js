@@ -78,6 +78,10 @@ export const useDialogueStore = create((set, get) => ({
       visitedNodeKeys: advanced.closeDialogue ? [] : advanced.visitedNodeKeys,
     });
 
+    if (advanced.requestTradeNpcId) {
+      useGameStore.getState().openTrade(advanced.requestTradeNpcId);
+    }
+
     return get();
   },
   closeDialogue: () =>

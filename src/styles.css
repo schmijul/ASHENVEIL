@@ -310,6 +310,99 @@ canvas {
   font-size: 0.84rem;
 }
 
+.trade-screen {
+  pointer-events: auto;
+  position: absolute;
+  inset: 1.5rem;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at center, rgba(212, 168, 67, 0.12), rgba(16, 19, 15, 0.84));
+}
+
+.trade-screen__panel {
+  width: min(64rem, 100%);
+  padding: 1.2rem;
+  border: 1px solid rgba(232, 220, 200, 0.16);
+  border-radius: 1.4rem;
+  background:
+    linear-gradient(180deg, rgba(92, 64, 51, 0.2), rgba(16, 19, 15, 0.94));
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.4);
+}
+
+.trade-screen__header,
+.trade-screen__column-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.trade-screen__eyebrow {
+  margin: 0;
+  color: #d4a843;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}
+
+.trade-screen__title {
+  margin: 0.2rem 0 0;
+  color: #e8dcc8;
+}
+
+.trade-screen__close {
+  padding: 0.55rem 0.85rem;
+  border: 1px solid rgba(232, 220, 200, 0.16);
+  border-radius: 999px;
+  color: #f3ede2;
+  background: rgba(59, 95, 59, 0.2);
+  cursor: pointer;
+}
+
+.trade-screen__gold {
+  margin-top: 0.85rem;
+  color: #d4a843;
+}
+
+.trade-screen__body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.trade-screen__column {
+  padding: 1rem;
+  border: 1px solid rgba(232, 220, 200, 0.12);
+  border-radius: 1rem;
+  background: rgba(16, 19, 15, 0.52);
+}
+
+.trade-screen__list {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+}
+
+.trade-screen__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.75rem;
+  padding: 0.75rem 0.8rem;
+  border: 1px solid rgba(232, 220, 200, 0.14);
+  border-radius: 0.85rem;
+  color: #f3ede2;
+  text-align: left;
+  background: rgba(59, 95, 59, 0.16);
+  cursor: pointer;
+}
+
+.trade-screen__item:hover,
+.trade-screen__close:hover {
+  border-color: rgba(212, 168, 67, 0.52);
+  background: rgba(92, 122, 74, 0.24);
+}
+
 @media (max-width: 720px) {
   .dialogue-box {
     grid-template-columns: 1fr;
@@ -332,5 +425,13 @@ canvas {
   .inventory-screen__grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     max-height: 18rem;
+  }
+
+  .trade-screen {
+    inset: 0.75rem;
+  }
+
+  .trade-screen__body {
+    grid-template-columns: 1fr;
   }
 }
