@@ -6,6 +6,9 @@ import {
   getLightAttackWindow,
   resolveBlockDamage,
 } from "../utils/combatMath";
+import { useInventoryStore } from "./inventoryStore";
+import { useQuestStore } from "./questStore";
+import { rollEnemyLoot } from "../utils/boarAI";
 import { sampleTerrainHeight } from "../utils/terrainGeneration";
 
 const initialQuestFlags = {
@@ -325,6 +328,55 @@ export const useGameStore = create((set) => ({
         },
       };
     }),
+  upsertCombatTargets: (targets) =>
+    set((state) => ({
+      combat: {
+        ...state.combat,
+        targets: targets.reduce(
+          (nextTargets, target) => ({
+            ...nextTargets,
+            [target.id]: target,
+          }),
+          { ...state.combat.targets },
+        ),
+      },
+    })),
+  setCombatTargetState: (targetId, patch) =>
+    set((state) => {
+      const target = state.combat.targets[targetId];
+      if (!target) {
+        return state;
+      }
+
+      return {
+        combat: {
+          ...state.combat,
+          targets: {
+            ...state.combat.targets,
+            [targetId]: {
+              ...target,
+              ...patch,
+            },
+          },
+        },
+      };
+    }),
+  removeCombatTarget: (targetId) =>
+    set((state) => {
+      if (!state.combat.targets[targetId]) {
+        return state;
+      }
+
+      const nextTargets = { ...state.combat.targets };
+      delete nextTargets[targetId];
+
+      return {
+        combat: {
+          ...state.combat,
+          targets: nextTargets,
+        },
+      };
+    }),
   damageTarget: (targetId, damage, now, staggerDuration = 0) =>
     set((state) => {
       const target = state.combat.targets[targetId];
@@ -333,6 +385,16 @@ export const useGameStore = create((set) => ({
       }
 
       const nextHealth = clamp(target.health - damage, 0, target.maxHealth);
+      const diedNow = nextHealth <= 0 && target.alive;
+      const lootDrop = diedNow && target.kind === "boar" ? rollEnemyLoot(target) : target.lootDrop;
+      if (diedNow && target.kind === "boar") {
+        useQuestStore.getState().recordObjectiveEvent({
+          type: "kill",
+          target: "boar",
+          count: 1,
+        });
+      }
+
       return {
         combat: {
           ...state.combat,
@@ -347,6 +409,8 @@ export const useGameStore = create((set) => ({
                 now + staggerDuration,
               ),
               hitFlashUntil: now + 0.18,
+              lootDrop,
+              aiState: nextHealth > 0 ? target.aiState : "dead",
             },
           },
         },
@@ -386,6 +450,57 @@ export const useGameStore = create((set) => ({
               nextAttackAt,
             },
           },
+        },
+      };
+    }),
+  collectNearbyLoot: (position, radius = 2.2) =>
+    set((state) => {
+      let didCollect = false;
+      const nextTargets = { ...state.combat.targets };
+
+      Object.values(state.combat.targets).forEach((target) => {
+        if (
+          target.kind !== "boar" ||
+          target.alive ||
+          target.looted ||
+          !target.lootDrop?.length
+        ) {
+          return;
+        }
+
+        const distance = Math.hypot(
+          target.position[0] - position[0],
+          target.position[2] - position[2],
+        );
+
+        if (distance > radius) {
+          return;
+        }
+
+        target.lootDrop.forEach((drop) => {
+          useInventoryStore.getState().addItem(drop.itemId, drop.quantity);
+          useQuestStore.getState().recordObjectiveEvent({
+            type: "collect",
+            item: drop.itemId,
+            count: drop.quantity,
+          });
+        });
+
+        nextTargets[target.id] = {
+          ...target,
+          looted: true,
+        };
+        didCollect = true;
+      });
+
+      if (!didCollect) {
+        return state;
+      }
+
+      return {
+        combat: {
+          ...state.combat,
+          targets: nextTargets,
         },
       };
     }),

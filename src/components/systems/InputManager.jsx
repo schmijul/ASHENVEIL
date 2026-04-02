@@ -59,6 +59,11 @@ export default function InputManager() {
       if (control) {
         setControlState(control, false);
       }
+
+      if (event.code === "KeyE") {
+        const snapshot = useGameStore.getState();
+        snapshot.collectNearbyLoot(snapshot.player.position);
+      }
     };
     const onBlur = () => resetControls();
     const onPointerDown = (event) => {

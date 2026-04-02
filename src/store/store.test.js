@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { COMBAT_CONSTANTS } from "../utils/combatMath";
+import { createBoarTarget } from "../utils/boarAI";
 import { useFactionStore } from "./factionStore";
 import { useGameStore } from "./gameStore";
 import { useInventoryStore } from "./inventoryStore";
@@ -75,6 +76,26 @@ describe("gameStore", () => {
     nextState = useGameStore.getState();
     expect(nextState.combat.targets.training_dummy.health).toBe(70);
     expect(nextState.combat.targets.training_dummy.staggeredUntil).toBeGreaterThan(4);
+  });
+
+  it("registers boars, drops loot on death, and collects it into inventory", () => {
+    const gameStore = useGameStore.getState();
+    const boar = createBoarTarget({
+      id: "test_boar",
+      enemyId: "boar",
+      x: 0,
+      z: 12,
+    });
+
+    gameStore.upsertCombatTargets([boar]);
+    gameStore.damageTarget("test_boar", boar.maxHealth, 5, 0);
+    gameStore.collectNearbyLoot([0, 0, 12], 3);
+
+    const nextState = useGameStore.getState();
+    const nextInventoryState = useInventoryStore.getState();
+    expect(nextState.combat.targets.test_boar.alive).toBe(false);
+    expect(nextState.combat.targets.test_boar.looted).toBe(true);
+    expect(nextInventoryState.inventory.length).toBeGreaterThan(0);
   });
 });
 

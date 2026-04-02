@@ -1,6 +1,8 @@
 import { useRef } from "react";
+import BoarHerd from "../entities/BoarHerd";
 import CombatSystem from "../systems/CombatSystem";
 import CameraController from "../systems/CameraController";
+import EnemySystem from "../systems/EnemySystem";
 import InputManager from "../systems/InputManager";
 import Player from "../entities/Player";
 import TestDummy from "../entities/TestDummy";
@@ -23,9 +25,11 @@ export default function Scene() {
       <Terrain />
       <Forest />
       <Village />
+      <BoarHerd />
       <Player bodyRef={playerBodyRef} />
       <TestDummy />
       <CombatSystem />
+      <EnemySystem />
       <CameraController targetRef={playerBodyRef} />
     </>
   );
