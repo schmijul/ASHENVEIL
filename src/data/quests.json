@@ -1,0 +1,141 @@
+{
+  "quests": [
+    {
+      "id": "hunt_boars",
+      "title": "The Hunt",
+      "description": "Maren needs you to prove your worth. Hunt boars in the forest and collect their pelts.",
+      "phase": "tutorial_phase1",
+      "giver": "maren",
+      "objectives": [
+        { "type": "kill", "target": "boar", "count": 3, "label": "Kill boars (0/3)" },
+        { "type": "collect", "item": "boar_pelt", "count": 3, "label": "Collect boar pelts (0/3)" }
+      ],
+      "rewards": {
+        "gold": 0,
+        "items": [],
+        "unlocks": ["sell_to_korvin"]
+      },
+      "onComplete": {
+        "setFlag": "boars_hunted"
+      }
+    },
+    {
+      "id": "sell_to_korvin",
+      "title": "Market Day",
+      "description": "Sell the boar meat to Korvin at the village market. Use the gold to buy better equipment.",
+      "phase": "tutorial_phase2",
+      "giver": "maren",
+      "prerequisite": "hunt_boars",
+      "objectives": [
+        { "type": "interact", "target": "korvin", "action": "sell", "item": "boar_meat", "count": 1, "label": "Sell meat to Korvin" },
+        { "type": "interact", "target": "hagen", "action": "buy", "optional": true, "label": "(Optional) Buy a weapon from Hagen" }
+      ],
+      "rewards": {
+        "gold": 0,
+        "items": [],
+        "unlocks": ["investigate_forest"]
+      },
+      "onComplete": {
+        "setFlag": "sold_first_meat"
+      }
+    },
+    {
+      "id": "lotte_herbs",
+      "title": "Lotte's Remedy",
+      "description": "The herbalist Lotte needs three herbs from the forest: Moonleaf, Thornroot, and Bittermoss.",
+      "phase": "tutorial_phase2",
+      "giver": "lotte",
+      "optional": true,
+      "objectives": [
+        { "type": "collect", "item": "herb_moonleaf", "count": 1, "label": "Find Moonleaf (near stream)" },
+        { "type": "collect", "item": "herb_thornroot", "count": 1, "label": "Find Thornroot (forest floor)" },
+        { "type": "collect", "item": "herb_bittermoss", "count": 1, "label": "Find Bittermoss (on rocks)" },
+        { "type": "interact", "target": "lotte", "action": "talk", "label": "Return to Lotte" }
+      ],
+      "rewards": {
+        "gold": 0,
+        "items": ["health_potion", "health_potion"]
+      }
+    },
+    {
+      "id": "hagen_tusk",
+      "title": "Hagen's Request",
+      "description": "The blacksmith Hagen can reinforce your hunting knife — if you bring him a boar tusk.",
+      "phase": "tutorial_phase2",
+      "giver": "hagen",
+      "optional": true,
+      "objectives": [
+        { "type": "collect", "item": "boar_tusk", "count": 1, "label": "Find a boar tusk" },
+        { "type": "interact", "target": "hagen", "action": "talk", "label": "Bring tusk to Hagen" }
+      ],
+      "rewards": {
+        "gold": 0,
+        "items": ["reinforced_knife"]
+      }
+    },
+    {
+      "id": "ren_training",
+      "title": "Ren's Lesson",
+      "description": "The hunter Ren offered to teach you how to fight properly.",
+      "phase": "tutorial_phase2",
+      "giver": "ren",
+      "optional": true,
+      "objectives": [
+        { "type": "action", "action": "heavy_attack", "target": "training_stump", "count": 3, "label": "Perform 3 heavy attacks on the training stump" }
+      ],
+      "rewards": {
+        "gold": 0,
+        "items": [],
+        "skillUnlock": "heavy_attack"
+      },
+      "onComplete": {
+        "setFlag": "heavy_attack_learned"
+      }
+    },
+    {
+      "id": "investigate_forest",
+      "title": "Something in the Forest",
+      "description": "Maren wants you to investigate strange noises deep in the forest. Something spooked the animals last night.",
+      "phase": "tutorial_phase3",
+      "giver": "maren",
+      "prerequisite": "sell_to_korvin",
+      "objectives": [
+        { "type": "visit", "location": "deep_forest", "label": "Go deeper into the forest" },
+        { "type": "visit", "location": "aether_clearing", "label": "Find the source of the disturbance" },
+        { "type": "interact", "target": "aether_crystal", "action": "touch", "label": "Examine the crystal formation" },
+        { "type": "kill", "target": "corrupted_wolf", "count": 1, "label": "Defeat the Corrupted Wolf" }
+      ],
+      "rewards": {
+        "gold": 0,
+        "items": ["aether_shard"],
+        "abilityUnlock": "aether_pulse"
+      },
+      "onComplete": {
+        "setFlag": "aether_awakened",
+        "triggerEvent": "village_destruction"
+      }
+    },
+    {
+      "id": "village_destruction",
+      "title": "Ashes of Grauweiler",
+      "description": "Grauweiler is under attack. Kernwall soldiers have come for the Aether crystal — and for you.",
+      "phase": "tutorial_phase4",
+      "autoStart": true,
+      "trigger": "event:village_destruction",
+      "objectives": [
+        { "type": "visit", "location": "village_entrance", "label": "Return to the village" },
+        { "type": "interact", "target": "maren", "action": "talk", "label": "Find Maren" },
+        { "type": "choice", "options": ["fight_soldiers", "sneak_past", "talk_commander"], "label": "Deal with the Kernwall soldiers" },
+        { "type": "visit", "location": "crossroads", "label": "Leave Grauweiler" }
+      ],
+      "rewards": {
+        "gold": 0,
+        "items": []
+      },
+      "onComplete": {
+        "setFlag": "prolog_complete",
+        "triggerEvent": "show_prolog_complete_screen"
+      }
+    }
+  ]
+}
