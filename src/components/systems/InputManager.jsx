@@ -1,39 +1,67 @@
-import { useEffect } from "react";
-import {
-  addCameraMouseDelta,
-  addCameraWheelDelta,
-  handlePlayerKey,
-  resetPlayerInputState,
-  setCameraRotating,
-} from "../../utils/playerInput";
+import { useEffect, useRef } from "react";
+import { useThree } from "@react-three/fiber";
+import { useGameStore } from "../../store/gameStore";
 
-const keyHandler = (pressed) => (event) => {
-  handlePlayerKey(event.code, pressed);
+const CONTROL_CODES = {
+  KeyW: "forward",
+  ArrowUp: "forward",
+  KeyS: "backward",
+  ArrowDown: "backward",
+  KeyA: "left",
+  ArrowLeft: "left",
+  KeyD: "right",
+  ArrowRight: "right",
+  ShiftLeft: "sprint",
+  ShiftRight: "sprint",
 };
 
 export default function InputManager() {
-  useEffect(() => {
-    resetPlayerInputState();
+  const gl = useThree((state) => state.gl);
+  const rotatingRef = useRef(false);
 
-    const onKeyDown = keyHandler(true);
-    const onKeyUp = keyHandler(false);
-    const onBlur = () => resetPlayerInputState();
+  useEffect(() => {
+    const { setControlState, setCameraOrbit, resetControls } =
+      useGameStore.getState();
+
+    const onKeyDown = (event) => {
+      const control = CONTROL_CODES[event.code];
+      if (control) {
+        setControlState(control, true);
+      }
+    };
+    const onKeyUp = (event) => {
+      const control = CONTROL_CODES[event.code];
+      if (control) {
+        setControlState(control, false);
+      }
+    };
+    const onBlur = () => resetControls();
     const onPointerDown = (event) => {
-      if (event.button !== 0) {
+      if (event.button !== 0 && event.button !== 2) {
+        return;
+      }
+      rotatingRef.current = true;
+    };
+    const onPointerUp = () => {
+      rotatingRef.current = false;
+    };
+    const onPointerMove = (event) => {
+      if (!rotatingRef.current) {
         return;
       }
 
-      setCameraRotating(true);
-    };
-    const onPointerUp = () => {
-      setCameraRotating(false);
-    };
-    const onPointerMove = (event) => {
-      addCameraMouseDelta(event.movementX, event.movementY);
+      const camera = useGameStore.getState().camera;
+      setCameraOrbit({
+        yaw: camera.yaw - event.movementX * 0.0022,
+        pitch: camera.pitch - event.movementY * 0.0022,
+      });
     };
     const onWheel = (event) => {
       event.preventDefault();
-      addCameraWheelDelta(event.deltaY);
+      const camera = useGameStore.getState().camera;
+      setCameraOrbit({
+        distance: camera.distance + event.deltaY * 0.0017,
+      });
     };
 
     window.addEventListener("keydown", onKeyDown);
@@ -44,7 +72,7 @@ export default function InputManager() {
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("contextmenu", onPointerUp);
 
-    const canvas = document.querySelector("canvas");
+    const canvas = gl.domElement;
     canvas?.addEventListener("pointerdown", onPointerDown);
     canvas?.addEventListener("wheel", onWheel, { passive: false });
 
@@ -58,9 +86,9 @@ export default function InputManager() {
       window.removeEventListener("contextmenu", onPointerUp);
       canvas?.removeEventListener("pointerdown", onPointerDown);
       canvas?.removeEventListener("wheel", onWheel);
-      resetPlayerInputState();
+      resetControls();
     };
-  }, []);
+  }, [gl]);
 
   return null;
 }

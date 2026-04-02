@@ -1,18 +1,13 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { Vector3 } from "three";
 import { useRapier } from "@react-three/rapier";
+import { useGameStore } from "../../store/gameStore";
 import {
   clampCameraDistance,
   computeOrbitOffset,
   focusPointFromBody,
   resolveCameraCollisionDistance,
 } from "../../utils/cameraMath";
-import {
-  consumeCameraMouseDelta,
-  consumeCameraWheelDelta,
-  getPlayerInputState,
-  setCameraOrbitState,
-} from "../../utils/playerInput";
 
 const focusOffset = new Vector3();
 const desiredOffset = new Vector3();
@@ -32,19 +27,14 @@ export default function CameraController({ targetRef }) {
       return;
     }
 
-    const input = getPlayerInputState();
-    const mouseDelta = consumeCameraMouseDelta();
-    const wheelDelta = consumeCameraWheelDelta();
-
-    const yaw = input.cameraYaw - mouseDelta.x * 0.0022;
-    const pitch = Math.min(1.12, Math.max(0.24, input.cameraPitch - mouseDelta.y * 0.0022));
+    const cameraState = useGameStore.getState().camera;
+    const yaw = cameraState.yaw;
+    const pitch = Math.min(1.12, Math.max(0.24, cameraState.pitch));
     const distance = clampCameraDistance({
-      desiredDistance: input.cameraDistance + wheelDelta * 0.0017,
+      desiredDistance: cameraState.distance,
       minDistance: 4.5,
       maxDistance: 16,
     });
-
-    setCameraOrbitState({ yaw, pitch, distance });
 
     const translation = targetBody.translation();
     const focus = focusPointFromBody({

@@ -1,6 +1,6 @@
 import { useFrame } from "@react-three/fiber";
+import { useGameStore } from "../../store/gameStore";
 import { resolvePlayerVelocity } from "../../utils/playerMovement";
-import { getPlayerInputState } from "../../utils/playerInput";
 
 export default function PlayerController({ bodyRef }) {
   useFrame(() => {
@@ -9,13 +9,14 @@ export default function PlayerController({ bodyRef }) {
       return;
     }
 
-    const input = getPlayerInputState();
+    const { controls, camera, setPlayerRotation } = useGameStore.getState();
     const { velocity } = resolvePlayerVelocity({
-      input,
-      cameraYaw: input.cameraYaw,
+      input: controls,
+      cameraYaw: camera.yaw,
       walkSpeed: 4.3,
       sprintSpeed: 6.9,
     });
+    const horizontalSpeed = Math.hypot(velocity.x, velocity.z);
 
     const currentVelocity = body.linvel();
     body.setLinvel(
@@ -26,6 +27,10 @@ export default function PlayerController({ bodyRef }) {
       },
       true,
     );
+
+    if (horizontalSpeed > 0.01) {
+      setPlayerRotation(Math.atan2(velocity.x, velocity.z));
+    }
   });
 
   return null;
