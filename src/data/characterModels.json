@@ -1,8 +1,0 @@
-{
-  "player": {
-    "path": "/models/characters/villager_male_npc_1.glb",
-    "scale": 1,
-    "yOffset": -0.02,
-    "rotationY": 0
-  }
-}

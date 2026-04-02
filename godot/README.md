@@ -39,5 +39,5 @@ See `INPUT_MAP.md` for the runtime action map and control bindings.
 
 ## Data runtime
 
-The native project reads from the repo-owned JSON data in `../src/data/` through `AshenveilDataStore`.
+The native project reads from the repo-owned JSON data in `../legacy_web/src/data/` through `AshenveilDataStore`.
 That store is the canonical source for items, NPCs, quests, enemies, and character model mappings.

@@ -1,7 +1,7 @@
 extends RefCounted
 class_name AshenveilDataLoader
 
-const DEFAULT_DATA_DIR := "res://../src/data"
+const DEFAULT_DATA_DIR := "res://../legacy_web/src/data"
 
 const DEFAULT_ITEM := {
 	"id": "",

@@ -3,3 +3,9 @@ dist/
 coverage/
 .DS_Store
 .agents/*
+.claude/
+.godot/
+godot/.godot/
+legacy_web/node_modules/
+legacy_web/dist/
+legacy_web/coverage/
