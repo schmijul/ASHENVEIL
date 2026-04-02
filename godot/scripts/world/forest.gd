@@ -1,63 +1,161 @@
 extends Node3D
 
 const BOAR_SCENE := preload("res://scenes/entities/boar.tscn")
-const TREE_POSITIONS := [
-	Vector3(-24, 0, -18),
-	Vector3(-18, 0, -12),
-	Vector3(16, 0, -20),
-	Vector3(22, 0, -8),
-	Vector3(-10, 0, 14),
-	Vector3(10, 0, 18),
-]
+const FOREST_RADIUS := 58.0
+const TREE_COUNT := 130
+const BUSH_COUNT := 260
+const ROCK_COUNT := 55
 
 func _ready() -> void:
-	_build_canopy_line()
+	_build_tree_layers()
+	_build_bush_layer()
+	_build_rocks()
 	_build_forest_floor()
 	_spawn_boars()
 
-func _build_canopy_line() -> void:
-	for position in TREE_POSITIONS:
+func _build_tree_layers() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4207
+	for i in range(TREE_COUNT):
+		var angle := rng.randf() * TAU
+		var distance := sqrt(rng.randf()) * FOREST_RADIUS
+		var position := Vector3(cos(angle) * distance, 0.0, sin(angle) * distance - 8.0)
+		if abs(position.x - sin(position.z * 0.06) * 4.0) < 6.0 and position.z > -28.0 and position.z < 45.0:
+			continue
+
 		var tree := Node3D.new()
 		tree.position = position
+		tree.rotation.y = rng.randf() * TAU
+		tree.scale = Vector3.ONE * rng.randf_range(0.9, 1.45)
 		add_child(tree)
 
 		var trunk := MeshInstance3D.new()
 		var trunk_mesh := CylinderMesh.new()
-		trunk_mesh.top_radius = 0.12
-		trunk_mesh.bottom_radius = 0.18
-		trunk_mesh.height = 3.2
-		trunk_mesh.radial_segments = 12
+		trunk_mesh.top_radius = 0.14
+		trunk_mesh.bottom_radius = 0.24
+		trunk_mesh.height = rng.randf_range(3.0, 4.8)
+		trunk_mesh.radial_segments = 14
 		trunk.mesh = trunk_mesh
-		trunk.position = Vector3(0, 1.6, 0)
+		trunk.position = Vector3(0, trunk_mesh.height * 0.5, 0)
 		var trunk_material := StandardMaterial3D.new()
-		trunk_material.albedo_color = Color(0.38, 0.25, 0.16, 1.0)
-		trunk_material.roughness = 0.98
+		trunk_material.albedo_color = Color(0.35, 0.24, 0.16, 1.0)
+		trunk_material.roughness = 0.93
 		trunk.material_override = trunk_material
 		tree.add_child(trunk)
 
+		if i % 5 == 0:
+			_add_oak_canopy(tree, trunk_mesh.height, rng)
+		else:
+			_add_pine_canopy(tree, trunk_mesh.height)
+
+func _add_pine_canopy(tree: Node3D, trunk_height: float) -> void:
+	var canopy_material := StandardMaterial3D.new()
+	canopy_material.albedo_color = Color(0.21, 0.34, 0.19, 1.0)
+	canopy_material.roughness = 0.98
+	for tier in range(3):
 		var canopy := MeshInstance3D.new()
-		var canopy_mesh := SphereMesh.new()
-		canopy_mesh.radius = 1.5
-		canopy_mesh.height = 2.2
-		canopy.mesh = canopy_mesh
-		canopy.position = Vector3(0, 3.7, 0)
-		var canopy_material := StandardMaterial3D.new()
-		canopy_material.albedo_color = Color(0.23, 0.36, 0.2, 1.0)
-		canopy_material.roughness = 1.0
+		var cone := CylinderMesh.new()
+		cone.top_radius = 0.0
+		cone.bottom_radius = 1.6 - float(tier) * 0.32
+		cone.height = 1.7 - float(tier) * 0.22
+		cone.radial_segments = 10
+		canopy.mesh = cone
+		canopy.position = Vector3(0, trunk_height - 0.4 + float(tier) * 0.82, 0)
 		canopy.material_override = canopy_material
 		tree.add_child(canopy)
 
+func _add_oak_canopy(tree: Node3D, trunk_height: float, rng: RandomNumberGenerator) -> void:
+	var canopy_material := StandardMaterial3D.new()
+	canopy_material.albedo_color = Color(0.27, 0.40, 0.22, 1.0)
+	canopy_material.roughness = 0.95
+	for part in range(3):
+		var canopy := MeshInstance3D.new()
+		var sphere := SphereMesh.new()
+		sphere.radius = rng.randf_range(0.9, 1.4)
+		sphere.height = sphere.radius * 1.45
+		canopy.mesh = sphere
+		canopy.position = Vector3(
+			rng.randf_range(-0.6, 0.6),
+			trunk_height + 0.7 + float(part) * 0.45,
+			rng.randf_range(-0.6, 0.6)
+		)
+		canopy.material_override = canopy_material
+		tree.add_child(canopy)
+
+func _build_bush_layer() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 9931
+	for _i in range(BUSH_COUNT):
+		var angle := rng.randf() * TAU
+		var distance := sqrt(rng.randf()) * (FOREST_RADIUS + 10.0)
+		var pos := Vector3(cos(angle) * distance, 0.0, sin(angle) * distance - 8.0)
+		if abs(pos.x - sin(pos.z * 0.06) * 4.0) < 4.7 and pos.z > -30.0 and pos.z < 45.0:
+			continue
+		var bush := MeshInstance3D.new()
+		var bush_mesh := SphereMesh.new()
+		bush_mesh.radius = rng.randf_range(0.20, 0.48)
+		bush_mesh.height = bush_mesh.radius * 1.2
+		bush.mesh = bush_mesh
+		bush.position = pos + Vector3(0.16, 0.16, 0.0)
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color(
+			rng.randf_range(0.19, 0.31),
+			rng.randf_range(0.33, 0.47),
+			rng.randf_range(0.16, 0.28),
+			1.0
+		)
+		mat.roughness = 0.97
+		bush.material_override = mat
+		add_child(bush)
+
+func _build_rocks() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3141
+	for _i in range(ROCK_COUNT):
+		var pos := Vector3(rng.randf_range(-58.0, 58.0), 0.0, rng.randf_range(-54.0, 48.0))
+		var rock := MeshInstance3D.new()
+		var mesh := SphereMesh.new()
+		mesh.radius = rng.randf_range(0.35, 1.1)
+		mesh.height = mesh.radius * rng.randf_range(0.85, 1.3)
+		rock.mesh = mesh
+		rock.position = pos + Vector3(0.22, 0.10, 0.0)
+		rock.scale = Vector3(rng.randf_range(0.9, 1.4), rng.randf_range(0.6, 1.0), rng.randf_range(0.8, 1.5))
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color(
+			rng.randf_range(0.30, 0.40),
+			rng.randf_range(0.30, 0.37),
+			rng.randf_range(0.28, 0.34),
+			1.0
+		)
+		mat.roughness = 1.0
+		rock.material_override = mat
+		add_child(rock)
+
 func _build_forest_floor() -> void:
 	var path := MeshInstance3D.new()
-	var path_mesh := BoxMesh.new()
-	path_mesh.size = Vector3(6, 0.06, 28)
+	var path_mesh := PlaneMesh.new()
+	path_mesh.size = Vector2(7.6, 70.0)
 	path.mesh = path_mesh
-	path.position = Vector3(0, 0.02, -2)
+	path.rotation_degrees = Vector3(-90, 0, 0)
+	path.position = Vector3(0, 0.05, 6)
 	var path_material := StandardMaterial3D.new()
-	path_material.albedo_color = Color(0.48, 0.35, 0.18, 1.0)
-	path_material.roughness = 1.0
+	path_material.albedo_color = Color(0.44, 0.33, 0.21, 1.0)
+	path_material.roughness = 0.98
 	path.material_override = path_material
 	add_child(path)
+
+	for i in range(8):
+		var patch := MeshInstance3D.new()
+		var patch_mesh := PlaneMesh.new()
+		patch_mesh.size = Vector2(3.0, 10.0)
+		patch.mesh = patch_mesh
+		patch.rotation_degrees = Vector3(-90, 0, 0)
+		patch.position = Vector3(sin(float(i) * 0.8) * 2.6, 0.051, -27.0 + float(i) * 9.5)
+		var patch_material := StandardMaterial3D.new()
+		patch_material.albedo_color = Color(0.35, 0.48, 0.27, 1.0)
+		patch_material.roughness = 1.0
+		patch.material_override = patch_material
+		add_child(patch)
 
 func _spawn_boars() -> void:
 	for enemy_id in ["boar", "scarred_boar"]:

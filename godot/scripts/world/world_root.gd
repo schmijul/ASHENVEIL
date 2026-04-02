@@ -2,7 +2,9 @@ extends Node3D
 
 const ForestScene := preload("res://scenes/world/forest.tscn")
 const VillageScene := preload("res://scenes/world/village.tscn")
-const FOREST_COLOR := Color(0.22, 0.34, 0.2, 1.0)
+const TERRAIN_SIZE := 170.0
+const TERRAIN_RESOLUTION := 96
+const TERRAIN_HEIGHT := 3.8
 
 func _ready() -> void:
 	_build_environment()
@@ -12,25 +14,49 @@ func _ready() -> void:
 func _build_environment() -> void:
 	var environment := WorldEnvironment.new()
 	var env := Environment.new()
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(0.76, 0.72, 0.64, 1.0)
+	env.background_mode = Environment.BG_SKY
+	env.sky = _build_sky()
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_color = Color(0.79, 0.74, 0.62, 1.0)
-	env.ambient_light_energy = 1.15
+	env.ambient_light_color = Color(0.82, 0.77, 0.68, 1.0)
+	env.ambient_light_energy = 1.35
 	env.fog_enabled = true
-	env.fog_light_color = Color(0.8, 0.75, 0.67, 1.0)
-	env.fog_density = 0.015
+	env.fog_light_color = Color(0.79, 0.74, 0.67, 1.0)
+	env.fog_density = 0.011
+	env.volumetric_fog_enabled = true
+	env.volumetric_fog_density = 0.09
+	env.glow_enabled = true
+	env.glow_strength = 0.55
+	env.tonemap_mode = Environment.TONE_MAPPER_ACES
+	env.sdfgi_enabled = true
 	environment.environment = env
 	add_child(environment)
 
 	var sun := DirectionalLight3D.new()
-	sun.light_energy = 1.5
-	sun.light_color = Color(1.0, 0.84, 0.63, 1.0)
-	sun.rotation_degrees = Vector3(-45, 35, 0)
+	sun.light_energy = 1.85
+	sun.light_color = Color(1.0, 0.85, 0.67, 1.0)
+	sun.rotation_degrees = Vector3(-37, 26, 0)
 	sun.shadow_enabled = true
-	sun.shadow_bias = -0.03
-	sun.shadow_normal_bias = 0.8
+	sun.shadow_bias = 0.02
+	sun.shadow_normal_bias = 1.1
 	add_child(sun)
+
+	var fill := DirectionalLight3D.new()
+	fill.light_energy = 0.22
+	fill.light_color = Color(0.55, 0.63, 0.71, 1.0)
+	fill.rotation_degrees = Vector3(-22, -142, 0)
+	add_child(fill)
+
+func _build_sky() -> Sky:
+	var sky := Sky.new()
+	var material := ProceduralSkyMaterial.new()
+	material.sky_top_color = Color(0.54, 0.66, 0.78, 1.0)
+	material.sky_horizon_color = Color(0.89, 0.84, 0.74, 1.0)
+	material.ground_horizon_color = Color(0.40, 0.35, 0.28, 1.0)
+	material.ground_bottom_color = Color(0.18, 0.20, 0.16, 1.0)
+	material.sun_angle_max = 40.0
+	material.sun_curve = 0.13
+	sky.sky_material = material
+	return sky
 
 func _build_ground() -> void:
 	var ground_body := StaticBody3D.new()
@@ -44,18 +70,60 @@ func _build_ground() -> void:
 	ground_body.add_child(collision)
 
 	var mesh_instance := MeshInstance3D.new()
-	var mesh := PlaneMesh.new()
-	mesh.size = Vector2(140, 140)
-	mesh.subdivide_width = 1
-	mesh.subdivide_depth = 1
-	mesh_instance.mesh = mesh
-	mesh_instance.position = Vector3(0, 0.0, 0)
-	mesh_instance.rotation_degrees = Vector3(-90, 0, 0)
+	mesh_instance.mesh = _build_terrain_mesh()
 	var material := StandardMaterial3D.new()
-	material.albedo_color = FOREST_COLOR
-	material.roughness = 0.95
+	material.vertex_color_use_as_albedo = true
+	material.roughness = 0.96
+	material.metallic = 0.0
 	mesh_instance.material_override = material
 	ground_body.add_child(mesh_instance)
+
+func _build_terrain_mesh() -> ArrayMesh:
+	var noise := FastNoiseLite.new()
+	noise.seed = 77
+	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX
+	noise.frequency = 0.019
+	noise.fractal_octaves = 4
+	noise.fractal_gain = 0.55
+
+	var mesh := ArrayMesh.new()
+	var arrays: Array = []
+	var vertices := PackedVector3Array()
+	var colors := PackedColorArray()
+	var normals := PackedVector3Array()
+	var indices := PackedInt32Array()
+	var step := TERRAIN_SIZE / float(TERRAIN_RESOLUTION)
+	var half := TERRAIN_SIZE * 0.5
+
+	for z in range(TERRAIN_RESOLUTION + 1):
+		for x in range(TERRAIN_RESOLUTION + 1):
+			var vx := -half + float(x) * step
+			var vz := -half + float(z) * step
+			var ridge := sin(vx * 0.07) * 0.35 + cos(vz * 0.06) * 0.25
+			var n := noise.get_noise_2d(vx, vz)
+			var h := n * TERRAIN_HEIGHT + ridge
+			vertices.append(Vector3(vx, h, vz))
+			normals.append(Vector3.UP)
+			var path_mask := float(clamp(1.0 - abs(vx - sin(vz * 0.06) * 4.0) / 7.0, 0.0, 1.0))
+			var forest_color := Color(0.24 + n * 0.02, 0.34 + n * 0.03, 0.20 + n * 0.01, 1.0)
+			var path_color := Color(0.44, 0.34, 0.20, 1.0)
+			colors.append(forest_color.lerp(path_color, path_mask * 0.9))
+
+	for z in range(TERRAIN_RESOLUTION):
+		for x in range(TERRAIN_RESOLUTION):
+			var tl := z * (TERRAIN_RESOLUTION + 1) + x
+			var tr := tl + 1
+			var bl := tl + TERRAIN_RESOLUTION + 1
+			var br := bl + 1
+			indices.append_array([tl, bl, tr, tr, bl, br])
+
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_COLOR] = colors
+	arrays[Mesh.ARRAY_INDEX] = indices
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
 
 func _attach_world_blocks() -> void:
 	var forest := ForestScene.instantiate()
