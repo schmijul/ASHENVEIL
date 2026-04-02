@@ -2,6 +2,7 @@ import { useFrame } from "@react-three/fiber";
 import { COMBAT_CONSTANTS } from "../../utils/combatMath";
 import { useDialogueStore } from "../../store/dialogueStore";
 import { useGameStore } from "../../store/gameStore";
+import { useInventoryStore } from "../../store/inventoryStore";
 import { resolvePlayerVelocity } from "../../utils/playerMovement";
 
 export default function PlayerController({ bodyRef }) {
@@ -13,13 +14,17 @@ export default function PlayerController({ bodyRef }) {
 
     const { controls, camera, combat, setPlayerRotation } = useGameStore.getState();
     const dialogueOpen = useDialogueStore.getState().isOpen;
+    const inventoryState = useInventoryStore.getState();
+    const inventoryOpen = useGameStore.getState().ui.inventoryOpen;
     const { velocity } = resolvePlayerVelocity({
       input: controls,
       cameraYaw: camera.yaw,
       walkSpeed: 4.3,
       sprintSpeed: 6.9,
+      totalWeight: inventoryState.totalWeight,
+      capacity: inventoryState.capacity,
     });
-    let nextVelocity = dialogueOpen
+    let nextVelocity = dialogueOpen || inventoryOpen
       ? { x: 0, y: 0, z: 0 }
       : velocity;
 
@@ -55,7 +60,7 @@ export default function PlayerController({ bodyRef }) {
       true,
     );
 
-    if (!dialogueOpen && horizontalSpeed > 0.01) {
+    if (!dialogueOpen && !inventoryOpen && horizontalSpeed > 0.01) {
       setPlayerRotation(Math.atan2(nextVelocity.x, nextVelocity.z));
     }
   });

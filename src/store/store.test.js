@@ -49,6 +49,18 @@ describe("gameStore", () => {
     expect(nextState.player.gold).toBe(0);
   });
 
+  it("toggles inventory UI state without leaving movement input stuck", () => {
+    const gameStore = useGameStore.getState();
+
+    gameStore.setControlState("forward", true);
+    gameStore.toggleInventory();
+    expect(useGameStore.getState().ui.inventoryOpen).toBe(true);
+    expect(useGameStore.getState().controls.forward).toBe(false);
+
+    gameStore.closeInventory();
+    expect(useGameStore.getState().ui.inventoryOpen).toBe(false);
+  });
+
   it("starts light and heavy combat actions while spending stamina", () => {
     const gameStore = useGameStore.getState();
 
@@ -106,15 +118,20 @@ describe("inventoryStore", () => {
     const inventoryStore = useInventoryStore.getState();
 
     inventoryStore.addItem("boar_meat", 2);
+    inventoryStore.addItem("boar_pelt", 3);
     inventoryStore.addItem("hunting_knife", 1);
-    inventoryStore.equipItem("weapon", "hunting_knife");
+    inventoryStore.equipItemById("hunting_knife");
     inventoryStore.removeItem("boar_meat", 1);
 
     const nextState = useInventoryStore.getState();
 
-    expect(nextState.inventory).toEqual([{ itemId: "boar_meat", quantity: 1 }]);
+    expect(nextState.inventory).toEqual([
+      { itemId: "boar_meat", quantity: 1 },
+      { itemId: "boar_pelt", quantity: 3 },
+    ]);
     expect(nextState.equipment.weapon).toBe("hunting_knife");
-    expect(nextState.totalWeight).toBeCloseTo(3.5);
+    expect(nextState.totalWeight).toBeCloseTo(8);
+    expect(nextState.resolveEquipmentSlot("padded_vest")).toBe("chest");
     expect(nextState.canCarryItem("iron_sword", 10)).toBe(true);
   });
 });

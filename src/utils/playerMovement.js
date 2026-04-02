@@ -52,12 +52,20 @@ export const getPlayerMoveSpeed = ({
   isSprinting = false,
   walkSpeed = 4.25,
   sprintSpeed = 6.75,
+  totalWeight = 0,
+  capacity = Infinity,
 } = {}) => {
   if (!isMoving) {
     return 0;
   }
 
-  return isSprinting ? sprintSpeed : walkSpeed;
+  const baseSpeed = isSprinting ? sprintSpeed : walkSpeed;
+  if (totalWeight <= capacity) {
+    return baseSpeed;
+  }
+
+  const encumbranceRatio = clamp(capacity / Math.max(totalWeight, capacity), 0.55, 1);
+  return baseSpeed * encumbranceRatio;
 };
 
 export const resolvePlayerVelocity = ({
@@ -65,6 +73,8 @@ export const resolvePlayerVelocity = ({
   cameraYaw = 0,
   walkSpeed = 4.25,
   sprintSpeed = 6.75,
+  totalWeight = 0,
+  capacity = Infinity,
 } = {}) => {
   const movement = resolveMovementVector({
     ...input,
@@ -75,6 +85,8 @@ export const resolvePlayerVelocity = ({
     isSprinting: input.sprint,
     walkSpeed,
     sprintSpeed,
+    totalWeight,
+    capacity,
   });
 
   return {

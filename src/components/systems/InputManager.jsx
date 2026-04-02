@@ -26,16 +26,31 @@ export default function InputManager() {
       setControlState,
       setCameraOrbit,
       resetControls,
+      closeInventory,
       startLightAttack,
       beginGuard,
       releaseGuard,
+      toggleInventory,
       triggerDodge,
     } =
       useGameStore.getState();
 
     const onKeyDown = (event) => {
       const dialogueStore = useDialogueStore.getState();
-      if (dialogueStore.isOpen && event.code !== "Escape") {
+      const inventoryOpen = useGameStore.getState().ui.inventoryOpen;
+
+      if (event.code === "KeyI" || event.code === "Tab") {
+        event.preventDefault();
+        if (event.repeat) {
+          return;
+        }
+        if (!dialogueStore.isOpen) {
+          toggleInventory();
+        }
+        return;
+      }
+
+      if ((dialogueStore.isOpen || inventoryOpen) && event.code !== "Escape") {
         return;
       }
 
@@ -67,6 +82,9 @@ export default function InputManager() {
       }
 
       if (event.code === "KeyE") {
+        if (useGameStore.getState().ui.inventoryOpen) {
+          return;
+        }
         const dialogueStore = useDialogueStore.getState();
         if (dialogueStore.focusedNpcId || dialogueStore.isOpen) {
           dialogueStore.requestInteraction();
@@ -78,12 +96,20 @@ export default function InputManager() {
       }
 
       if (event.code === "Escape") {
+        if (useGameStore.getState().ui.inventoryOpen) {
+          closeInventory();
+          return;
+        }
+
         useDialogueStore.getState().closeDialogue();
       }
     };
     const onBlur = () => resetControls();
     const onPointerDown = (event) => {
-      if (useDialogueStore.getState().isOpen) {
+      if (
+        useDialogueStore.getState().isOpen ||
+        useGameStore.getState().ui.inventoryOpen
+      ) {
         return;
       }
 
@@ -106,7 +132,7 @@ export default function InputManager() {
       }
     };
     const onPointerMove = (event) => {
-      if (!rotatingRef.current) {
+      if (!rotatingRef.current || useGameStore.getState().ui.inventoryOpen) {
         return;
       }
 
@@ -117,6 +143,9 @@ export default function InputManager() {
       });
     };
     const onWheel = (event) => {
+      if (useGameStore.getState().ui.inventoryOpen) {
+        return;
+      }
       event.preventDefault();
       const camera = useGameStore.getState().camera;
       setCameraOrbit({

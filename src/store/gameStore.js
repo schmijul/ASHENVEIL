@@ -54,6 +54,10 @@ const initialCameraState = {
   distance: 9.5,
 };
 
+const initialUiState = {
+  inventoryOpen: false,
+};
+
 const initialCombatState = {
   combatMode: false,
   isAttacking: false,
@@ -93,6 +97,7 @@ export const useGameStore = create((set) => ({
   world: { ...initialWorldState },
   controls: { ...initialControlsState },
   camera: { ...initialCameraState },
+  ui: { ...initialUiState },
   combat: { ...initialCombatState },
   setPlayerPosition: (position) =>
     set((state) => ({
@@ -130,6 +135,22 @@ export const useGameStore = create((set) => ({
         ...(typeof distance === "number"
           ? { distance: clamp(distance, 4.5, 16) }
           : {}),
+      },
+    })),
+  toggleInventory: () =>
+    set((state) => ({
+      controls: { ...initialControlsState },
+      ui: {
+        ...state.ui,
+        inventoryOpen: !state.ui.inventoryOpen,
+      },
+    })),
+  closeInventory: () =>
+    set((state) => ({
+      controls: { ...initialControlsState },
+      ui: {
+        ...state.ui,
+        inventoryOpen: false,
       },
     })),
   setCombatState: (patch) =>
@@ -663,6 +684,7 @@ export const useGameStore = create((set) => ({
       world: { ...initialWorldState },
       controls: { ...initialControlsState },
       camera: { ...initialCameraState },
+      ui: { ...initialUiState },
       combat: { ...initialCombatState },
     }),
 }));
@@ -673,5 +695,6 @@ export const gameStoreDefaults = {
   initialQuestFlags,
   initialControlsState,
   initialCameraState,
+  initialUiState,
   initialCombatState,
 };

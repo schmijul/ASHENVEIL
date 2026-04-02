@@ -32,6 +32,16 @@ describe("playerMovement", () => {
     expect(getPlayerMoveSpeed({ isMoving: true, isSprinting: true })).toBe(6.75);
   });
 
+  it("slows movement when the player is overweight", () => {
+    expect(
+      getPlayerMoveSpeed({
+        isMoving: true,
+        totalWeight: 50,
+        capacity: 40,
+      }),
+    ).toBeLessThan(4.25);
+  });
+
   it("builds a velocity vector from input and camera yaw", () => {
     const result = resolvePlayerVelocity({
       input: { forward: true, sprint: true },

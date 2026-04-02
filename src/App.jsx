@@ -1,6 +1,7 @@
 import { Canvas } from "@react-three/fiber";
 import { Physics } from "@react-three/rapier";
 import DialogueBox from "./components/ui/DialogueBox";
+import InventoryScreen from "./components/ui/InventoryScreen";
 import InteractionPrompt from "./components/ui/InteractionPrompt";
 import Scene from "./components/world/Scene";
 
@@ -22,6 +23,7 @@ export default function App() {
       <div className="ui-layer">
         <InteractionPrompt />
         <DialogueBox />
+        <InventoryScreen />
       </div>
     </div>
   );

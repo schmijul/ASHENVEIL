@@ -32,6 +32,23 @@ const findItemIndex = (inventory, itemId) =>
 
 const createStack = (itemId, quantity) => ({ itemId, quantity });
 
+const resolveEquipmentSlot = (itemId) => {
+  const definition = getItemDefinition(itemId);
+  if (!definition) {
+    return null;
+  }
+
+  if (definition.type === "weapon") {
+    return "weapon";
+  }
+
+  if (definition.type === "armor") {
+    return definition.slot ?? null;
+  }
+
+  return null;
+};
+
 const addStack = (inventory, itemId, quantity = 1) => {
   const stackIndex = findItemIndex(inventory, itemId);
 
@@ -84,6 +101,13 @@ export const useInventoryStore = create((set, get) => ({
   capacity: 40,
   totalWeight: 0,
   getItemDefinition,
+  resolveEquipmentSlot,
+  getItemQuantity: (itemId) =>
+    get().inventory.find((entry) => entry.itemId === itemId)?.quantity ?? 0,
+  hasItem: (itemId, quantity = 1) =>
+    (get().inventory.find((entry) => entry.itemId === itemId)?.quantity ?? 0) +
+      Object.values(get().equipment).filter((equippedId) => equippedId === itemId).length >=
+    quantity,
   addItem: (itemId, quantity = 1) =>
     set((state) => {
       const definition = getItemDefinition(itemId);
@@ -146,7 +170,11 @@ export const useInventoryStore = create((set, get) => ({
   equipItem: (slot, itemId) =>
     set((state) => {
       const definition = getItemDefinition(itemId);
-      if (!definition || !(slot in state.equipment)) {
+      if (
+        !definition ||
+        !(slot in state.equipment) ||
+        resolveEquipmentSlot(itemId) !== slot
+      ) {
         return state;
       }
 
@@ -175,6 +203,14 @@ export const useInventoryStore = create((set, get) => ({
         totalWeight,
       };
     }),
+  equipItemById: (itemId) => {
+    const slot = resolveEquipmentSlot(itemId);
+    if (!slot) {
+      return get();
+    }
+
+    return get().equipItem(slot, itemId);
+  },
   unequipItem: (slot) =>
     set((state) => {
       if (!(slot in state.equipment)) {
@@ -224,4 +260,5 @@ export const useInventoryStore = create((set, get) => ({
 export const inventoryStoreDefaults = {
   initialEquipment,
   itemCatalog,
+  resolveEquipmentSlot,
 };
