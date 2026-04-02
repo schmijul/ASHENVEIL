@@ -6,6 +6,7 @@ export default function App() {
   return (
     <Canvas
       camera={{ fov: 50, near: 0.1, far: 250, position: [0, 10, 18] }}
+      gl={{ antialias: true }}
       dpr={[1, 1.5]}
       shadows
     >
