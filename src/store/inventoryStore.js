@@ -32,6 +32,42 @@ const findItemIndex = (inventory, itemId) =>
 
 const createStack = (itemId, quantity) => ({ itemId, quantity });
 
+const addStack = (inventory, itemId, quantity = 1) => {
+  const stackIndex = findItemIndex(inventory, itemId);
+
+  if (stackIndex === -1) {
+    inventory.push(createStack(itemId, quantity));
+    return inventory;
+  }
+
+  inventory[stackIndex] = {
+    ...inventory[stackIndex],
+    quantity: inventory[stackIndex].quantity + quantity,
+  };
+
+  return inventory;
+};
+
+const removeStack = (inventory, itemId, quantity = 1) => {
+  const stackIndex = findItemIndex(inventory, itemId);
+
+  if (stackIndex === -1) {
+    return inventory;
+  }
+
+  const nextQuantity = inventory[stackIndex].quantity - quantity;
+  if (nextQuantity > 0) {
+    inventory[stackIndex] = {
+      ...inventory[stackIndex],
+      quantity: nextQuantity,
+    };
+  } else {
+    inventory.splice(stackIndex, 1);
+  }
+
+  return inventory;
+};
+
 const recalculateTotalWeight = (inventory, equipment) => {
   const itemWeight = inventory.reduce((total, entry) => total + getStackWeight(entry), 0);
   const equipmentWeight = Object.values(equipment).reduce((total, itemId) => {
@@ -56,16 +92,7 @@ export const useInventoryStore = create((set, get) => ({
       }
 
       const inventory = cloneInventory(state.inventory);
-      const stackIndex = findItemIndex(inventory, itemId);
-
-      if (stackIndex === -1) {
-        inventory.push(createStack(itemId, quantity));
-      } else {
-        inventory[stackIndex] = {
-          ...inventory[stackIndex],
-          quantity: inventory[stackIndex].quantity + quantity,
-        };
-      }
+      addStack(inventory, itemId, quantity);
 
       const totalWeight = recalculateTotalWeight(inventory, state.equipment);
 
@@ -77,21 +104,10 @@ export const useInventoryStore = create((set, get) => ({
   removeItem: (itemId, quantity = 1) =>
     set((state) => {
       const inventory = cloneInventory(state.inventory);
-      const stackIndex = findItemIndex(inventory, itemId);
-
-      if (stackIndex === -1 || quantity <= 0) {
+      if (findItemIndex(inventory, itemId) === -1 || quantity <= 0) {
         return state;
       }
-
-      const nextQuantity = inventory[stackIndex].quantity - quantity;
-      if (nextQuantity > 0) {
-        inventory[stackIndex] = {
-          ...inventory[stackIndex],
-          quantity: nextQuantity,
-        };
-      } else {
-        inventory.splice(stackIndex, 1);
-      }
+      removeStack(inventory, itemId, quantity);
 
       const totalWeight = recalculateTotalWeight(inventory, state.equipment);
 
@@ -130,8 +146,20 @@ export const useInventoryStore = create((set, get) => ({
   equipItem: (slot, itemId) =>
     set((state) => {
       const definition = getItemDefinition(itemId);
-      if (!definition) {
+      if (!definition || !(slot in state.equipment)) {
         return state;
+      }
+
+      const inventory = cloneInventory(state.inventory);
+      const stackIndex = findItemIndex(inventory, itemId);
+      if (stackIndex === -1) {
+        return state;
+      }
+
+      const previouslyEquippedItem = state.equipment[slot];
+      removeStack(inventory, itemId, 1);
+      if (previouslyEquippedItem) {
+        addStack(inventory, previouslyEquippedItem, 1);
       }
 
       const equipment = {
@@ -139,9 +167,10 @@ export const useInventoryStore = create((set, get) => ({
         [slot]: itemId,
       };
 
-      const totalWeight = recalculateTotalWeight(state.inventory, equipment);
+      const totalWeight = recalculateTotalWeight(inventory, equipment);
 
       return {
+        inventory,
         equipment,
         totalWeight,
       };
@@ -157,9 +186,15 @@ export const useInventoryStore = create((set, get) => ({
         [slot]: null,
       };
 
-      const totalWeight = recalculateTotalWeight(state.inventory, equipment);
+      const inventory = cloneInventory(state.inventory);
+      if (state.equipment[slot]) {
+        addStack(inventory, state.equipment[slot], 1);
+      }
+
+      const totalWeight = recalculateTotalWeight(inventory, equipment);
 
       return {
+        inventory,
         equipment,
         totalWeight,
       };
