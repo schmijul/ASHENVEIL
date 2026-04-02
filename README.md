@@ -49,6 +49,7 @@ src/
   store/
   utils/
 planning_docs/   # local only, not for sanitized GitHub branches
+public/models/characters/  # optional GLB character models
 ```
 
 ## Branch Strategy
@@ -60,6 +61,7 @@ planning_docs/   # local only, not for sanitized GitHub branches
 ## Notes
 
 - Runtime game data lives in `src/data/`.
+- Character model mapping lives in `src/data/characterModels.json` (currently player-ready, with procedural fallback if no GLB is set).
 - Browser-accessible debug handles are exposed through `window.__ASHENVEIL__`.
 - Dialogue, inventory, and trading now run fully through Zustand-backed runtime stores.
 - Detailed planning and narrative documents remain local in `planning_docs/` and should not be published to GitHub in online tracking branches.

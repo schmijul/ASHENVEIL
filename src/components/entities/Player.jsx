@@ -1,15 +1,33 @@
-import { useRef } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { CapsuleCollider, RigidBody } from "@react-three/rapier";
 import { useFrame } from "@react-three/fiber";
 import PlayerController from "../systems/PlayerController";
 import { useGameStore } from "../../store/gameStore";
 import { calculateWalkBob } from "../../utils/playerMovement";
+import CharacterModel from "./CharacterModel";
+import characterModels from "../../data/characterModels.json";
+import { getCharacterModelConfig } from "../../utils/characterModelConfig";
 
 export default function Player({ bodyRef }) {
   const visualRef = useRef(null);
   const bodyMaterialRef = useRef(null);
   const tunicMaterialRef = useRef(null);
   const weaponGroupRef = useRef(null);
+  const [modelReady, setModelReady] = useState(false);
+  const modelConfig = useMemo(
+    () => getCharacterModelConfig(characterModels, "player"),
+    [],
+  );
+  const hasConfiguredModel = modelConfig.path.length > 0;
+  const showProceduralBody = !hasConfiguredModel || !modelReady;
+
+  const handleModelLoaded = useCallback(() => {
+    setModelReady(true);
+  }, []);
+
+  const handleModelError = useCallback(() => {
+    setModelReady(false);
+  }, []);
 
   useFrame((state) => {
     const body = bodyRef?.current;
@@ -90,40 +108,54 @@ export default function Player({ bodyRef }) {
     >
       <CapsuleCollider args={[0.55, 0.35]} />
       <group ref={visualRef}>
-        <mesh castShadow>
-          <capsuleGeometry args={[0.35, 0.75, 6, 12]} />
-          <meshStandardMaterial
-            ref={bodyMaterialRef}
-            color="#8b6841"
-            flatShading
+        {hasConfiguredModel && (
+          <CharacterModel
+            modelPath={modelConfig.path}
+            onError={handleModelError}
+            onLoaded={handleModelLoaded}
+            rotationY={modelConfig.rotationY}
+            scale={modelConfig.scale}
+            yOffset={modelConfig.yOffset}
           />
-        </mesh>
-        <mesh castShadow position={[0, 0.12, 0.2]}>
-          <boxGeometry args={[0.52, 0.8, 0.4]} />
-          <meshStandardMaterial
-            ref={tunicMaterialRef}
-            color="#e8dcc8"
-            flatShading
-          />
-        </mesh>
-        <mesh castShadow position={[-0.22, 0.06, 0.12]}>
-          <sphereGeometry args={[0.075, 8, 8]} />
-          <meshStandardMaterial
-            color="#00f5ff"
-            emissive="#00f5ff"
-            emissiveIntensity={0.7}
-            flatShading
-          />
-        </mesh>
-        <mesh castShadow position={[0.22, 0.06, 0.12]}>
-          <sphereGeometry args={[0.075, 8, 8]} />
-          <meshStandardMaterial
-            color="#00f5ff"
-            emissive="#00f5ff"
-            emissiveIntensity={0.7}
-            flatShading
-          />
-        </mesh>
+        )}
+        {showProceduralBody && (
+          <>
+            <mesh castShadow>
+              <capsuleGeometry args={[0.35, 0.75, 6, 12]} />
+              <meshStandardMaterial
+                ref={bodyMaterialRef}
+                color="#8b6841"
+                flatShading
+              />
+            </mesh>
+            <mesh castShadow position={[0, 0.12, 0.2]}>
+              <boxGeometry args={[0.52, 0.8, 0.4]} />
+              <meshStandardMaterial
+                ref={tunicMaterialRef}
+                color="#e8dcc8"
+                flatShading
+              />
+            </mesh>
+            <mesh castShadow position={[-0.22, 0.06, 0.12]}>
+              <sphereGeometry args={[0.075, 8, 8]} />
+              <meshStandardMaterial
+                color="#00f5ff"
+                emissive="#00f5ff"
+                emissiveIntensity={0.7}
+                flatShading
+              />
+            </mesh>
+            <mesh castShadow position={[0.22, 0.06, 0.12]}>
+              <sphereGeometry args={[0.075, 8, 8]} />
+              <meshStandardMaterial
+                color="#00f5ff"
+                emissive="#00f5ff"
+                emissiveIntensity={0.7}
+                flatShading
+              />
+            </mesh>
+          </>
+        )}
         <group ref={weaponGroupRef}>
           <mesh castShadow position={[0.05, -0.28, 0.12]}>
             <boxGeometry args={[0.09, 0.62, 0.09]} />
