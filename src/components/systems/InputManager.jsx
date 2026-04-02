@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useThree } from "@react-three/fiber";
 import { useGameStore } from "../../store/gameStore";
+import { resolveMovementVector } from "../../utils/playerMovement";
 
 const CONTROL_CODES = {
   KeyW: "forward",
@@ -20,13 +21,37 @@ export default function InputManager() {
   const rotatingRef = useRef(false);
 
   useEffect(() => {
-    const { setControlState, setCameraOrbit, resetControls } =
+    const {
+      setControlState,
+      setCameraOrbit,
+      resetControls,
+      startLightAttack,
+      beginGuard,
+      releaseGuard,
+      triggerDodge,
+    } =
       useGameStore.getState();
 
     const onKeyDown = (event) => {
       const control = CONTROL_CODES[event.code];
       if (control) {
         setControlState(control, true);
+      }
+
+      if (event.code === "Space") {
+        event.preventDefault();
+        const snapshot = useGameStore.getState();
+        const movement = resolveMovementVector({
+          ...snapshot.controls,
+          cameraYaw: snapshot.camera.yaw,
+        });
+        const direction = movement.moving
+          ? [movement.x, movement.z]
+          : [
+              Math.sin(snapshot.player.rotation),
+              Math.cos(snapshot.player.rotation),
+            ];
+        triggerDodge(direction, performance.now() / 1000);
       }
     };
     const onKeyUp = (event) => {
@@ -41,9 +66,19 @@ export default function InputManager() {
         return;
       }
       rotatingRef.current = true;
+
+      const now = performance.now() / 1000;
+      if (event.button === 0) {
+        startLightAttack(now);
+      } else if (event.button === 2) {
+        beginGuard(now);
+      }
     };
-    const onPointerUp = () => {
+    const onPointerUp = (event) => {
       rotatingRef.current = false;
+      if (event.button === 2) {
+        releaseGuard(performance.now() / 1000);
+      }
     };
     const onPointerMove = (event) => {
       if (!rotatingRef.current) {

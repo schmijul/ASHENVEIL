@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { COMBAT_CONSTANTS } from "../utils/combatMath";
 import { useFactionStore } from "./factionStore";
 import { useGameStore } from "./gameStore";
 import { useInventoryStore } from "./inventoryStore";
@@ -43,6 +44,37 @@ describe("gameStore", () => {
 
     expect(nextState.world.questFlags.sold_first_meat).toBe(true);
     expect(nextState.player.gold).toBe(0);
+  });
+
+  it("starts light and heavy combat actions while spending stamina", () => {
+    const gameStore = useGameStore.getState();
+
+    gameStore.startLightAttack(1);
+    let nextState = useGameStore.getState();
+    expect(nextState.combat.isAttacking).toBe(true);
+    expect(nextState.combat.attackWindow.type).toBe("light");
+
+    gameStore.finishAttack(1.5);
+    gameStore.beginGuard(2);
+    gameStore.releaseGuard(2 + COMBAT_CONSTANTS.heavyHoldThreshold + 0.1);
+    nextState = useGameStore.getState();
+
+    expect(nextState.combat.attackWindow.type).toBe("heavy");
+    expect(nextState.player.stamina).toBeLessThan(nextState.player.maxStamina);
+  });
+
+  it("creates dodge invulnerability and damages the dummy target", () => {
+    const gameStore = useGameStore.getState();
+
+    gameStore.triggerDodge([1, 0], 3);
+    let nextState = useGameStore.getState();
+    expect(nextState.combat.isDodging).toBe(true);
+    expect(nextState.combat.invulnerableUntil).toBeGreaterThan(3);
+
+    gameStore.damageTarget("training_dummy", 20, 4, 0.6);
+    nextState = useGameStore.getState();
+    expect(nextState.combat.targets.training_dummy.health).toBe(70);
+    expect(nextState.combat.targets.training_dummy.staggeredUntil).toBeGreaterThan(4);
   });
 });
 

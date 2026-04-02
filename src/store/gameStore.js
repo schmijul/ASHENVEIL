@@ -1,4 +1,12 @@
 import { create } from "zustand";
+import {
+  COMBAT_CONSTANTS,
+  createDodgeState,
+  getHeavyAttackWindow,
+  getLightAttackWindow,
+  resolveBlockDamage,
+} from "../utils/combatMath";
+import { sampleTerrainHeight } from "../utils/terrainGeneration";
 
 const initialQuestFlags = {
   metMaren: false,
@@ -43,6 +51,38 @@ const initialCameraState = {
   distance: 9.5,
 };
 
+const initialCombatState = {
+  combatMode: false,
+  isAttacking: false,
+  isBlocking: false,
+  isDodging: false,
+  comboStep: 0,
+  lastAttackAt: 0,
+  attackWindow: null,
+  guardStartedAt: null,
+  dodgeDirection: [0, 1],
+  dodgeEndsAt: 0,
+  invulnerableUntil: 0,
+  staminaRegenBlockedUntil: 0,
+  playerHitFlashUntil: 0,
+  targets: {
+    training_dummy: {
+      id: "training_dummy",
+      kind: "dummy",
+      position: [0, sampleTerrainHeight(0, 9, { seed: 7 }) + 1.1, 9],
+      radius: 0.9,
+      health: 90,
+      maxHealth: 90,
+      alive: true,
+      attackDamage: 10,
+      attackCooldown: 1.3,
+      nextAttackAt: 0,
+      staggeredUntil: 0,
+      hitFlashUntil: 0,
+    },
+  },
+};
+
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 export const useGameStore = create((set) => ({
@@ -50,6 +90,7 @@ export const useGameStore = create((set) => ({
   world: { ...initialWorldState },
   controls: { ...initialControlsState },
   camera: { ...initialCameraState },
+  combat: { ...initialCombatState },
   setPlayerPosition: (position) =>
     set((state) => ({
       player: { ...state.player, position: [...position] },
@@ -88,6 +129,303 @@ export const useGameStore = create((set) => ({
           : {}),
       },
     })),
+  setCombatState: (patch) =>
+    set((state) => ({
+      combat:
+        typeof patch === "function"
+          ? patch(state.combat)
+          : { ...state.combat, ...patch },
+    })),
+  startLightAttack: (now) =>
+    set((state) => {
+      if (
+        state.combat.isAttacking ||
+        state.combat.isDodging ||
+        state.player.stamina <
+          getLightAttackWindow({
+            comboStep: state.combat.comboStep,
+            lastAttackAt: state.combat.lastAttackAt,
+            now,
+          }).staminaCost
+      ) {
+        return state;
+      }
+
+      const attackWindow = getLightAttackWindow({
+        comboStep: state.combat.comboStep,
+        lastAttackAt: state.combat.lastAttackAt,
+        now,
+      });
+
+      return {
+        player: {
+          ...state.player,
+          stamina: clamp(
+            state.player.stamina - attackWindow.staminaCost,
+            0,
+            state.player.maxStamina,
+          ),
+        },
+        combat: {
+          ...state.combat,
+          combatMode: true,
+          isAttacking: true,
+          isBlocking: false,
+          attackWindow,
+          comboStep: attackWindow.comboStep,
+          lastAttackAt: now,
+          guardStartedAt: null,
+          staminaRegenBlockedUntil: now + COMBAT_CONSTANTS.staminaRegenDelay,
+        },
+      };
+    }),
+  beginGuard: (now) =>
+    set((state) => {
+      if (state.combat.isAttacking || state.combat.isDodging) {
+        return state;
+      }
+
+      return {
+        combat: {
+          ...state.combat,
+          combatMode: true,
+          isBlocking: true,
+          guardStartedAt: now,
+          staminaRegenBlockedUntil: now + COMBAT_CONSTANTS.staminaRegenDelay,
+        },
+      };
+    }),
+  stopBlocking: () =>
+    set((state) => ({
+      combat: {
+        ...state.combat,
+        isBlocking: false,
+        guardStartedAt: null,
+      },
+    })),
+  releaseGuard: (now) =>
+    set((state) => {
+      if (!state.combat.isBlocking) {
+        return state;
+      }
+
+      const heldDuration = now - (state.combat.guardStartedAt ?? now);
+      if (
+        heldDuration >= COMBAT_CONSTANTS.heavyHoldThreshold &&
+        state.player.stamina >= getHeavyAttackWindow({ now }).staminaCost
+      ) {
+        const heavyAttack = getHeavyAttackWindow({ now });
+
+        return {
+          player: {
+            ...state.player,
+            stamina: clamp(
+              state.player.stamina - heavyAttack.staminaCost,
+              0,
+              state.player.maxStamina,
+            ),
+          },
+          combat: {
+            ...state.combat,
+            combatMode: true,
+            isBlocking: false,
+            isAttacking: true,
+            attackWindow: heavyAttack,
+            comboStep: 0,
+            lastAttackAt: now,
+            guardStartedAt: null,
+            staminaRegenBlockedUntil: now + COMBAT_CONSTANTS.staminaRegenDelay,
+          },
+        };
+      }
+
+      return {
+        combat: {
+          ...state.combat,
+          isBlocking: false,
+          guardStartedAt: null,
+        },
+      };
+    }),
+  triggerDodge: (direction, now) =>
+    set((state) => {
+      if (
+        state.combat.isDodging ||
+        state.combat.isAttacking ||
+        state.player.stamina < COMBAT_CONSTANTS.dodgeCost
+      ) {
+        return state;
+      }
+
+      const dodgeState = createDodgeState({ direction, now });
+      return {
+        player: {
+          ...state.player,
+          stamina: clamp(
+            state.player.stamina - COMBAT_CONSTANTS.dodgeCost,
+            0,
+            state.player.maxStamina,
+          ),
+        },
+        combat: {
+          ...state.combat,
+          combatMode: true,
+          isDodging: true,
+          isBlocking: false,
+          isAttacking: false,
+          attackWindow: null,
+          comboStep: 0,
+          ...dodgeState,
+          staminaRegenBlockedUntil: now + COMBAT_CONSTANTS.staminaRegenDelay,
+        },
+      };
+    }),
+  finishDodge: () =>
+    set((state) => ({
+      combat: {
+        ...state.combat,
+        isDodging: false,
+      },
+    })),
+  markAttackResolved: () =>
+    set((state) => ({
+      combat: {
+        ...state.combat,
+        attackWindow: state.combat.attackWindow
+          ? { ...state.combat.attackWindow, hitResolved: true }
+          : null,
+      },
+    })),
+  finishAttack: (now) =>
+    set((state) => ({
+      combat: {
+        ...state.combat,
+        isAttacking: false,
+        attackWindow: null,
+        staminaRegenBlockedUntil: now + COMBAT_CONSTANTS.staminaRegenDelay,
+      },
+    })),
+  setTargetPosition: (targetId, position) =>
+    set((state) => {
+      const target = state.combat.targets[targetId];
+      if (!target) {
+        return state;
+      }
+
+      return {
+        combat: {
+          ...state.combat,
+          targets: {
+            ...state.combat.targets,
+            [targetId]: {
+              ...target,
+              position: [...position],
+            },
+          },
+        },
+      };
+    }),
+  damageTarget: (targetId, damage, now, staggerDuration = 0) =>
+    set((state) => {
+      const target = state.combat.targets[targetId];
+      if (!target || !target.alive) {
+        return state;
+      }
+
+      const nextHealth = clamp(target.health - damage, 0, target.maxHealth);
+      return {
+        combat: {
+          ...state.combat,
+          targets: {
+            ...state.combat.targets,
+            [targetId]: {
+              ...target,
+              health: nextHealth,
+              alive: nextHealth > 0,
+              staggeredUntil: Math.max(
+                target.staggeredUntil,
+                now + staggerDuration,
+              ),
+              hitFlashUntil: now + 0.18,
+            },
+          },
+        },
+      };
+    }),
+  resetTarget: (targetId) =>
+    set((state) => {
+      const target = initialCombatState.targets[targetId];
+      if (!target) {
+        return state;
+      }
+
+      return {
+        combat: {
+          ...state.combat,
+          targets: {
+            ...state.combat.targets,
+            [targetId]: { ...target },
+          },
+        },
+      };
+    }),
+  setTargetNextAttackAt: (targetId, nextAttackAt) =>
+    set((state) => {
+      const target = state.combat.targets[targetId];
+      if (!target) {
+        return state;
+      }
+
+      return {
+        combat: {
+          ...state.combat,
+          targets: {
+            ...state.combat.targets,
+            [targetId]: {
+              ...target,
+              nextAttackAt,
+            },
+          },
+        },
+      };
+    }),
+  applyIncomingDamage: (incomingDamage, now) =>
+    set((state) => {
+      if (now < state.combat.invulnerableUntil) {
+        return state;
+      }
+
+      const defence = resolveBlockDamage({
+        incomingDamage,
+        isBlocking: state.combat.isBlocking,
+        stamina: state.player.stamina,
+      });
+
+      return {
+        player: {
+          ...state.player,
+          health: clamp(
+            state.player.health - defence.damageTaken,
+            0,
+            state.player.maxHealth,
+          ),
+          stamina: clamp(
+            state.player.stamina - defence.staminaSpent,
+            0,
+            state.player.maxStamina,
+          ),
+        },
+        combat: {
+          ...state.combat,
+          combatMode: true,
+          playerHitFlashUntil: now + 0.18,
+          staminaRegenBlockedUntil: now + COMBAT_CONSTANTS.staminaRegenDelay,
+          isBlocking:
+            state.combat.isBlocking &&
+            state.player.stamina - defence.staminaSpent > 0,
+        },
+      };
+    }),
   setHealth: (health) =>
     set((state) => ({
       player: {
@@ -210,6 +548,7 @@ export const useGameStore = create((set) => ({
       world: { ...initialWorldState },
       controls: { ...initialControlsState },
       camera: { ...initialCameraState },
+      combat: { ...initialCombatState },
     }),
 }));
 
@@ -219,4 +558,5 @@ export const gameStoreDefaults = {
   initialQuestFlags,
   initialControlsState,
   initialCameraState,
+  initialCombatState,
 };
