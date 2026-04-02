@@ -8,9 +8,11 @@ Browser-based 3D action RPG prototype built with React, React Three Fiber, Rapie
 - Task 6 complete: core Zustand stores for game, inventory, quests, and factions
 - Task 2 complete: player capsule movement, sprinting, orbit camera, and camera collision fallback
 - Task 3 complete: procedural terrain, forest placement, grass, rocks, and path-aware foliage rules
+- Task 4 complete: village layout, buildings, market square, forge, props, and smoke effects
 - Unit tests cover the current store layer
 - Unit tests also cover player movement math and camera math
 - Unit tests also cover terrain generation parameters
+- Unit tests also cover village layout placement
 
 ## Stack
 
