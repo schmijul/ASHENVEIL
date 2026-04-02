@@ -1,9 +1,11 @@
 import { useRef } from "react";
 import BoarHerd from "../entities/BoarHerd";
+import NPCRoster from "../entities/NPCRoster";
 import CombatSystem from "../systems/CombatSystem";
 import CameraController from "../systems/CameraController";
 import EnemySystem from "../systems/EnemySystem";
 import InputManager from "../systems/InputManager";
+import NPCSystem from "../systems/NPCSystem";
 import Player from "../entities/Player";
 import TestDummy from "../entities/TestDummy";
 import Forest from "./Forest";
@@ -25,11 +27,13 @@ export default function Scene() {
       <Terrain />
       <Forest />
       <Village />
+      <NPCRoster />
       <BoarHerd />
       <Player bodyRef={playerBodyRef} />
       <TestDummy />
       <CombatSystem />
       <EnemySystem />
+      <NPCSystem />
       <CameraController targetRef={playerBodyRef} />
     </>
   );

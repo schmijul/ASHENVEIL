@@ -25,10 +25,12 @@ export default function InputManager() {
       setControlState,
       setCameraOrbit,
       resetControls,
+      interact,
       startLightAttack,
       beginGuard,
       releaseGuard,
       triggerDodge,
+      endNpcInteraction,
     } =
       useGameStore.getState();
 
@@ -61,8 +63,11 @@ export default function InputManager() {
       }
 
       if (event.code === "KeyE") {
-        const snapshot = useGameStore.getState();
-        snapshot.collectNearbyLoot(snapshot.player.position);
+        interact();
+      }
+
+      if (event.code === "Escape") {
+        endNpcInteraction();
       }
     };
     const onBlur = () => resetControls();

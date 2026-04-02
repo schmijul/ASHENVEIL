@@ -47,6 +47,24 @@ describe("gameStore", () => {
     expect(nextState.player.gold).toBe(0);
   });
 
+  it("opens and closes NPC interactions through the shared interact action", () => {
+    const gameStore = useGameStore.getState();
+
+    gameStore.setFocusedNpc("maren");
+    gameStore.interact();
+    let nextState = useGameStore.getState();
+
+    expect(nextState.interaction.activeNpcId).toBe("maren");
+    expect(nextState.interaction.dialogueOpen).toBe(true);
+    expect(nextState.world.questFlags.metMaren).toBe(true);
+
+    gameStore.interact();
+    nextState = useGameStore.getState();
+
+    expect(nextState.interaction.activeNpcId).toBeNull();
+    expect(nextState.interaction.dialogueOpen).toBe(false);
+  });
+
   it("starts light and heavy combat actions while spending stamina", () => {
     const gameStore = useGameStore.getState();
 
