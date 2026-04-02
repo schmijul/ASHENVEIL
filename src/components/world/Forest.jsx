@@ -1,5 +1,10 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import { Color, Object3D } from "three";
+import { CuboidCollider, CylinderCollider, RigidBody } from "@react-three/rapier";
+import {
+  getRockCollisionProfile,
+  getTreeCollisionProfile,
+} from "../../utils/collisionProfiles";
 import { buildForestPlacements } from "../../utils/terrainGeneration";
 
 const helper = new Object3D();
@@ -151,6 +156,54 @@ export default function Forest() {
         <meshStandardMaterial color={rockColor} flatShading />
         </instancedMesh>
       )}
+
+      {placements.pines.map((placement, index) => {
+        const profile = getTreeCollisionProfile(placement, "pine");
+        const [x, y, z] = placement.position;
+
+        return (
+          <RigidBody
+            key={`pine-collider-${index}`}
+            colliders={false}
+            position={[x, y + profile.halfHeight, z]}
+            type="fixed"
+          >
+            <CylinderCollider args={[profile.halfHeight, profile.radius]} />
+          </RigidBody>
+        );
+      })}
+
+      {placements.oaks.map((placement, index) => {
+        const profile = getTreeCollisionProfile(placement, "oak");
+        const [x, y, z] = placement.position;
+
+        return (
+          <RigidBody
+            key={`oak-collider-${index}`}
+            colliders={false}
+            position={[x, y + profile.halfHeight, z]}
+            type="fixed"
+          >
+            <CylinderCollider args={[profile.halfHeight, profile.radius]} />
+          </RigidBody>
+        );
+      })}
+
+      {placements.rocks.map((placement, index) => {
+        const profile = getRockCollisionProfile(placement);
+        const [x, y, z] = placement.position;
+
+        return (
+          <RigidBody
+            key={`rock-collider-${index}`}
+            colliders={false}
+            position={[x, y + profile.halfExtents[1], z]}
+            type="fixed"
+          >
+            <CuboidCollider args={profile.halfExtents} />
+          </RigidBody>
+        );
+      })}
     </group>
   );
 }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { BufferAttribute, BufferGeometry } from "three";
+import { RigidBody, TrimeshCollider } from "@react-three/rapier";
 import { buildTerrainData } from "../../utils/terrainGeneration";
 
 export default function Terrain() {
@@ -24,8 +25,11 @@ export default function Terrain() {
   useEffect(() => () => geometry.dispose(), [geometry]);
 
   return (
-    <mesh receiveShadow geometry={geometry} position={[0, 0.01, 0]}>
-      <meshStandardMaterial vertexColors flatShading />
-    </mesh>
+    <RigidBody type="fixed" colliders={false} position={[0, 0, 0]}>
+      <TrimeshCollider args={[geometry.attributes.position.array, geometry.index.array]} />
+      <mesh receiveShadow geometry={geometry}>
+        <meshStandardMaterial vertexColors flatShading />
+      </mesh>
+    </RigidBody>
   );
 }

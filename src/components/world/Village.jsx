@@ -1,4 +1,6 @@
 import { useMemo } from "react";
+import { CuboidCollider, RigidBody } from "@react-three/rapier";
+import { getBuildingCollisionProfile } from "../../utils/collisionProfiles";
 import { buildVillageLayout } from "../../utils/villageLayout";
 import VillageBuilding from "./VillageBuilding";
 import VillageSmoke from "./VillageSmoke";
@@ -16,7 +18,20 @@ export default function Village() {
       </mesh>
 
       {layout.buildings.map((building) => (
-        <VillageBuilding key={building.id} building={building} />
+        <group key={building.id}>
+          <VillageBuilding building={building} />
+          <RigidBody
+            colliders={false}
+            position={[
+              building.position[0],
+              building.position[1] + building.wallHeight / 2,
+              building.position[2],
+            ]}
+            type="fixed"
+          >
+            <CuboidCollider args={getBuildingCollisionProfile(building).halfExtents} />
+          </RigidBody>
+        </group>
       ))}
 
       {layout.fences.map((prop, index) => (
