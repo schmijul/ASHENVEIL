@@ -11,7 +11,7 @@ const initialQuestFlags = {
 };
 
 const initialPlayerState = {
-  position: [0, 0, 0],
+  position: [0, 0.675, 0],
   rotation: 0,
   health: 100,
   maxHealth: 100,
@@ -29,11 +29,27 @@ const initialWorldState = {
   aetherAwakened: false,
 };
 
+const initialControlsState = {
+  forward: false,
+  backward: false,
+  left: false,
+  right: false,
+  sprint: false,
+};
+
+const initialCameraState = {
+  yaw: 0,
+  pitch: 0.55,
+  distance: 9.5,
+};
+
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 export const useGameStore = create((set) => ({
   player: { ...initialPlayerState },
   world: { ...initialWorldState },
+  controls: { ...initialControlsState },
+  camera: { ...initialCameraState },
   setPlayerPosition: (position) =>
     set((state) => ({
       player: { ...state.player, position: [...position] },
@@ -41,6 +57,36 @@ export const useGameStore = create((set) => ({
   setPlayerRotation: (rotation) =>
     set((state) => ({
       player: { ...state.player, rotation },
+    })),
+  setControlState: (control, value) =>
+    set((state) => {
+      if (!(control in state.controls)) {
+        return state;
+      }
+
+      return {
+        controls: {
+          ...state.controls,
+          [control]: value,
+        },
+      };
+    }),
+  resetControls: () =>
+    set({
+      controls: { ...initialControlsState },
+    }),
+  setCameraOrbit: ({ yaw, pitch, distance }) =>
+    set((state) => ({
+      camera: {
+        ...state.camera,
+        ...(typeof yaw === "number" ? { yaw } : {}),
+        ...(typeof pitch === "number"
+          ? { pitch: clamp(pitch, 0.24, 1.12) }
+          : {}),
+        ...(typeof distance === "number"
+          ? { distance: clamp(distance, 4.5, 16) }
+          : {}),
+      },
     })),
   setHealth: (health) =>
     set((state) => ({
@@ -162,6 +208,8 @@ export const useGameStore = create((set) => ({
     set({
       player: { ...initialPlayerState },
       world: { ...initialWorldState },
+      controls: { ...initialControlsState },
+      camera: { ...initialCameraState },
     }),
 }));
 
@@ -169,4 +217,6 @@ export const gameStoreDefaults = {
   initialPlayerState,
   initialWorldState,
   initialQuestFlags,
+  initialControlsState,
+  initialCameraState,
 };
