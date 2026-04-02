@@ -37,8 +37,8 @@ Goal: a grounded third-person player character with movement and collision.
 - Keep the silhouette simple at first if needed, but preserve the final camera framing
 - Verify: player moves and collides correctly in a test scene
 
-### Task 3 - Gothic Camera
-Goal: a low, over-the-shoulder camera that feels like Gothic / Witcher.
+### Task 3 - Grounded Third-Person Camera
+Goal: a low, over-the-shoulder camera that feels like classic dark-fantasy RPGs / Witcher.
 - Implement follow lag, yaw, pitch, zoom, and camera collision
 - Ensure the camera stays close enough to avoid a Pokemon-style read
 - Add combat backoff behavior for spatial awareness

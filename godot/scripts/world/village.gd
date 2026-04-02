@@ -66,8 +66,9 @@ func _spawn_npcs() -> void:
 	}
 
 	for npc in AshenveilDataStore.get_all_npcs():
-		var npc_id := str(npc.get("id", ""))
-		var location := str(npc.get("location", ""))
+		var npc_data: Dictionary = npc
+		var npc_id: String = str(npc_data.get("id", ""))
+		var location: String = str(npc_data.get("location", ""))
 		var npc_node := NPC_SCENE.instantiate()
 		npc_node.call("configure_npc", npc_id)
 		npc_node.position = location_positions.get(location, Vector3.ZERO)

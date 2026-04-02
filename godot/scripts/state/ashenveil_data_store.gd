@@ -1,7 +1,7 @@
 extends Node
-class_name AshenveilDataStore
 
-const DEFAULT_DATA_DIR := AshenveilDataLoader.DEFAULT_DATA_DIR
+const DataLoaderScript := preload("res://scripts/data/ashenveil_data_loader.gd")
+const DEFAULT_DATA_DIR := "res://../legacy_web/src/data"
 
 signal data_loaded
 signal data_load_failed(warnings: Array)
@@ -22,8 +22,8 @@ func _ready() -> void:
 		load_data()
 
 func load_data() -> bool:
-	var loader := AshenveilDataLoader.new()
-	var payload := loader.load_indexed(source_dir)
+	var loader: RefCounted = DataLoaderScript.new()
+	var payload: Dictionary = loader.load_indexed(source_dir)
 	items_by_id = payload["items_by_id"]
 	npcs_by_id = payload["npcs_by_id"]
 	quests_by_id = payload["quests_by_id"]

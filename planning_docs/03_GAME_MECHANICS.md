@@ -10,7 +10,7 @@ This document defines the native Godot gameplay model for Ashenveil. The rules a
 - Heavy Attack: slow, high damage, can stagger enemies
 - Block: reduces damage, drains stamina, with timing-based perfect block windows
 - Dodge Roll: i-frames, stamina cost
-- No lock-on by default: free aim like Gothic, with optional soft lock behavior if needed
+- No lock-on by default: free aim like classic dark-fantasy RPGs, with optional soft lock behavior if needed
 
 ### Stamina System
 - All combat actions drain stamina
@@ -88,11 +88,11 @@ Each realm has an independent reputation value from -100 to +100.
 ### Crafting
 - Cooking: combine ingredients at campfires for regeneration food
 - Aether smithing: upgrade weapons or armor with Aether crystals at forges, with corruption risk
-- No complex crafting trees. Keep it Gothic-style: recipe, materials, station.
+- No complex crafting trees. Keep it classic dark-fantasy RPG style: recipe, materials, station.
 
 ## NPC & Dialogue System
 
-### Gothic-Style Dialogue
+### Grounded Dialogue Style
 - No voiced protagonist
 - Dialogue options have no moral color coding
 - Consequences are learned through play, not telegraphed by the UI
@@ -116,4 +116,4 @@ Each realm has an independent reputation value from -100 to +100.
 - Game state lives in Godot autoload singletons, not in scene-local state
 - Item, quest, NPC, and enemy data stay external in JSON and are loaded at runtime
 - Combat, dialogue, inventory, and quests must stay decoupled enough to test separately
-- Camera and movement tuning should favor the heavier Gothic feel rather than a floaty action-cam feel
+- Camera and movement tuning should favor the heavier heavy grounded feel rather than a floaty action-cam feel

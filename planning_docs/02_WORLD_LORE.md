@@ -56,7 +56,7 @@ The Aether was a visible energy network flowing through the sky like luminous ri
 
 ## Why This Works For The Native Build
 
-- The lore is built around a grounded third-person prolog, so the new Godot camera and movement model can stay close to the Gothic reference.
+- The lore is built around a grounded third-person prolog, so the new Godot camera and movement model can stay close to the dark-fantasy reference.
 - Grauweiler functions as the first playable social hub, which keeps dialogue, trading, and quest setup tightly focused.
 - The three realms provide long-term scale, but the first native slice only needs enough world context to make the prolog and Aether escalation believable.
 

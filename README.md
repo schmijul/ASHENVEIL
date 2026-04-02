@@ -1,6 +1,6 @@
 # ASHENVEIL
 
-Ashenveil is being migrated to a native Godot 4 action RPG for Ubuntu. The active design target is a Gothic / Witcher-style vertical slice with grounded third-person camera, forest and village exploration, dialogue, trading, combat, and the opening quest chain.
+Ashenveil is being migrated to a native Godot 4 action RPG for Ubuntu. The active design target is a dark-fantasy / Witcher-style vertical slice with grounded third-person camera, forest and village exploration, dialogue, trading, combat, and the opening quest chain.
 
 ## Current Status
 

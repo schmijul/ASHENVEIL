@@ -6,8 +6,8 @@
 |-------|-------|
 | **Title** | Ashenveil |
 | **Genre** | Open-World Action RPG |
-| **Reference Games** | Gothic 3, Skyrim, The Witcher 3 |
-| **Art Style** | Stylized-Realistic (Gothic / Witcher atmosphere) |
+| **Reference Games** | classic dark-fantasy RPGs, Skyrim, The Witcher 3 |
+| **Art Style** | Stylized-Realistic (dark-fantasy / Witcher atmosphere) |
 | **Tech Stack** | Godot 4 + GDScript |
 | **Perspective** | Third-Person |
 | **Platform** | Native Ubuntu build |

@@ -24,7 +24,7 @@ func _build_visual() -> void:
 	var body := MeshInstance3D.new()
 	var body_mesh := CapsuleMesh.new()
 	body_mesh.radius = 0.35
-	body_mesh.mid_height = 0.85
+	body_mesh.height = 1.55
 	body.mesh = body_mesh
 	body.position = Vector3(0, 1.1, 0)
 	var material := StandardMaterial3D.new()
@@ -45,13 +45,14 @@ func _build_interaction_area() -> void:
 	area.add_child(shape_node)
 
 func _refresh_label() -> void:
-	var npc := AshenveilDataStore.get_npc(npc_id)
-	var display_name := npc.get("name", npc_id)
-	var role := npc.get("role", "")
-	var model := AshenveilDataStore.get_character_model(npc_id)
-	var model_tag := ""
-	if str(model.get("path", "")).is_empty():
+	var npc: Dictionary = AshenveilDataStore.get_npc(npc_id)
+	var display_name: String = str(npc.get("name", npc_id))
+	var role: String = str(npc.get("role", ""))
+	var model: Dictionary = AshenveilDataStore.get_character_model(npc_id)
+	var model_path: String = str(model.get("path", ""))
+	var model_tag: String = ""
+	if model_path.is_empty():
 		model_tag = "prototype capsule"
 	else:
-		model_tag = model.get("path", "").get_file()
+		model_tag = model_path.get_file()
 	_label.text = "%s\n%s\n%s" % [display_name, role, model_tag]

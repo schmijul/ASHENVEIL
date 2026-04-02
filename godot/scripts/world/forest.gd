@@ -61,10 +61,11 @@ func _build_forest_floor() -> void:
 
 func _spawn_boars() -> void:
 	for enemy_id in ["boar", "scarred_boar"]:
-		var enemy := AshenveilDataStore.get_enemy(enemy_id)
+		var enemy: Dictionary = AshenveilDataStore.get_enemy(enemy_id)
 		var boar := BOAR_SCENE.instantiate()
 		boar.set("enemy_id", enemy_id)
-		var scale := enemy.get("mesh", {}).get("scale", [1.2, 0.6, 0.7])
-		boar.scale = Vector3(scale[0], scale[1], scale[2])
+		var mesh_data: Dictionary = enemy.get("mesh", {})
+		var scale_data: Array = mesh_data.get("scale", [1.2, 0.6, 0.7])
+		boar.scale = Vector3(float(scale_data[0]), float(scale_data[1]), float(scale_data[2]))
 		boar.position = Vector3(-6 if enemy_id == "boar" else 7, 0, -8 if enemy_id == "boar" else -14)
 		add_child(boar)

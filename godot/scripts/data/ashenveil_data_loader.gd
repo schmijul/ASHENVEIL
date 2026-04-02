@@ -107,7 +107,7 @@ func _load_collection(source_dir: String, file_name: String, key: String, normal
 	if root.is_empty():
 		return []
 
-	var raw := root.get(key, [])
+	var raw: Variant = root.get(key, [])
 	if not (raw is Array):
 		warnings.append("%s: expected array at key '%s'" % [file_name, key])
 		return []
@@ -133,7 +133,7 @@ func _load_character_models(source_dir: String, warnings: Array) -> Array:
 
 	var result: Array = []
 	for id in root.keys():
-		var raw := root.get(id)
+		var raw: Variant = root.get(id)
 		if not (raw is Dictionary):
 			warnings.append("characterModels.json: skipped model '%s' because it is not a dictionary" % str(id))
 			continue
@@ -156,7 +156,7 @@ func _read_json_object(source_dir: String, file_name: String, warnings: Array) -
 		return {}
 
 	var raw := file.get_as_text()
-	var parsed := JSON.parse_string(raw)
+	var parsed: Variant = JSON.parse_string(raw)
 	if parsed == null or not (parsed is Dictionary):
 		warnings.append("%s: invalid JSON object" % file_name)
 		return {}
@@ -194,7 +194,7 @@ func _to_bool(value, fallback: bool) -> bool:
 		return value
 	return fallback
 
-func _to_string(value, fallback: String) -> String:
+func _as_string(value, fallback: String) -> String:
 	if value is String:
 		return value.strip_edges()
 	return fallback
@@ -213,21 +213,21 @@ func _copy_defaults(defaults: Dictionary) -> Dictionary:
 
 func _normalize_item(raw: Dictionary) -> Dictionary:
 	var item := _copy_defaults(DEFAULT_ITEM)
-	item["id"] = _to_string(raw.get("id", ""), "")
-	item["name"] = _to_string(raw.get("name", ""), "")
-	item["type"] = _to_string(raw.get("type", item["type"]), item["type"])
-	item["subtype"] = _to_string(raw.get("subtype", ""), "")
-	item["slot"] = _to_string(raw.get("slot", ""), "")
+	item["id"] = _as_string(raw.get("id", ""), "")
+	item["name"] = _as_string(raw.get("name", ""), "")
+	item["type"] = _as_string(raw.get("type", item["type"]), item["type"])
+	item["subtype"] = _as_string(raw.get("subtype", ""), "")
+	item["slot"] = _as_string(raw.get("slot", ""), "")
 	item["damage"] = _to_int(raw.get("damage", 0), 0)
 	item["speed"] = _to_float(raw.get("speed", 0.0), 0.0)
 	item["defense"] = _to_int(raw.get("defense", 0), 0)
 	item["weight"] = _to_float(raw.get("weight", 0.0), 0.0)
 	item["price"] = _to_int(raw.get("price", 0), 0)
-	item["description"] = _to_string(raw.get("description", ""), "")
-	item["icon"] = _to_string(raw.get("icon", ""), "")
+	item["description"] = _as_string(raw.get("description", ""), "")
+	item["icon"] = _as_string(raw.get("icon", ""), "")
 	item["stackable"] = _to_bool(raw.get("stackable", false), false)
 	item["maxStack"] = max(1, _to_int(raw.get("maxStack", 1), 1))
-	item["effect"] = _to_string(raw.get("effect", ""), "")
+	item["effect"] = _as_string(raw.get("effect", ""), "")
 	item["value"] = _to_int(raw.get("value", 0), 0)
 	item["corruptionOnPickup"] = _to_int(raw.get("corruptionOnPickup", 0), 0)
 	return item
@@ -239,12 +239,12 @@ func _normalize_dialogue_tree(raw) -> Dictionary:
 
 func _normalize_npc(raw: Dictionary) -> Dictionary:
 	var npc := _copy_defaults(DEFAULT_NPC)
-	npc["id"] = _to_string(raw.get("id", ""), "")
-	npc["name"] = _to_string(raw.get("name", ""), "")
-	npc["role"] = _to_string(raw.get("role", ""), "")
-	npc["location"] = _to_string(raw.get("location", ""), "")
+	npc["id"] = _as_string(raw.get("id", ""), "")
+	npc["name"] = _as_string(raw.get("name", ""), "")
+	npc["role"] = _as_string(raw.get("role", ""), "")
+	npc["location"] = _as_string(raw.get("location", ""), "")
 	npc["dialogue"] = _normalize_dialogue_tree(raw.get("dialogue", {}))
-	var inventory := raw.get("inventory", [])
+	var inventory: Variant = raw.get("inventory", [])
 	npc["inventory"] = inventory if inventory is Array else []
 	return npc
 
@@ -255,14 +255,14 @@ func _normalize_objectives(raw) -> Array:
 
 func _normalize_quest(raw: Dictionary) -> Dictionary:
 	var quest := _copy_defaults(DEFAULT_QUEST)
-	quest["id"] = _to_string(raw.get("id", ""), "")
-	quest["title"] = _to_string(raw.get("title", ""), "")
-	quest["description"] = _to_string(raw.get("description", ""), "")
-	quest["phase"] = _to_string(raw.get("phase", ""), "")
-	quest["giver"] = _to_string(raw.get("giver", ""), "")
+	quest["id"] = _as_string(raw.get("id", ""), "")
+	quest["title"] = _as_string(raw.get("title", ""), "")
+	quest["description"] = _as_string(raw.get("description", ""), "")
+	quest["phase"] = _as_string(raw.get("phase", ""), "")
+	quest["giver"] = _as_string(raw.get("giver", ""), "")
 	quest["optional"] = _to_bool(raw.get("optional", false), false)
-	quest["prerequisite"] = _to_string(raw.get("prerequisite", ""), "")
-	quest["trigger"] = _to_string(raw.get("trigger", ""), "")
+	quest["prerequisite"] = _as_string(raw.get("prerequisite", ""), "")
+	quest["trigger"] = _as_string(raw.get("trigger", ""), "")
 	quest["autoStart"] = _to_bool(raw.get("autoStart", false), false)
 	quest["objectives"] = _normalize_objectives(raw.get("objectives", []))
 	quest["rewards"] = raw.get("rewards", {}) if raw.get("rewards", {}) is Dictionary else {}
@@ -271,8 +271,8 @@ func _normalize_quest(raw: Dictionary) -> Dictionary:
 
 func _normalize_enemy(raw: Dictionary) -> Dictionary:
 	var enemy := _copy_defaults(DEFAULT_ENEMY)
-	enemy["id"] = _to_string(raw.get("id", ""), "")
-	enemy["name"] = _to_string(raw.get("name", ""), "")
+	enemy["id"] = _as_string(raw.get("id", ""), "")
+	enemy["name"] = _as_string(raw.get("name", ""), "")
 	enemy["health"] = max(1, _to_int(raw.get("health", 1), 1))
 	enemy["damage"] = max(0, _to_int(raw.get("damage", 0), 0))
 	enemy["attackSpeed"] = max(0.01, _to_float(raw.get("attackSpeed", 1.0), 1.0))
@@ -282,16 +282,16 @@ func _normalize_enemy(raw: Dictionary) -> Dictionary:
 	enemy["behavior"] = raw.get("behavior", {}) if raw.get("behavior", {}) is Dictionary else {}
 	enemy["loot"] = raw.get("loot", []) if raw.get("loot", []) is Array else []
 	enemy["mesh"] = raw.get("mesh", {}) if raw.get("mesh", {}) is Dictionary else {}
-	enemy["faction"] = _to_string(raw.get("faction", ""), "")
+	enemy["faction"] = _as_string(raw.get("faction", ""), "")
 	enemy["isBoss"] = _to_bool(raw.get("isBoss", false), false)
-	enemy["staggerRequirement"] = _to_string(raw.get("staggerRequirement", ""), "")
+	enemy["staggerRequirement"] = _as_string(raw.get("staggerRequirement", ""), "")
 	enemy["staggerDuration"] = max(0.0, _to_float(raw.get("staggerDuration", 0.0), 0.0))
 	return enemy
 
 func _normalize_character_model(raw: Dictionary, id: String = "") -> Dictionary:
 	var model := _copy_defaults(DEFAULT_CHARACTER_MODEL)
 	model["id"] = id.strip_edges()
-	model["path"] = _to_string(raw.get("path", ""), "")
+	model["path"] = _as_string(raw.get("path", ""), "")
 	model["scale"] = max(0.01, _to_float(raw.get("scale", 1.0), 1.0))
 	model["yOffset"] = _to_float(raw.get("yOffset", 0.0), 0.0)
 	model["rotationY"] = _to_float(raw.get("rotationY", 0.0), 0.0)

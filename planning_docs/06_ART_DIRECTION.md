@@ -2,7 +2,7 @@
 
 ## Visual Style: Stylized-Realistic Forest Atmosphere
 
-Ashenveil should feel like a grounded Gothic / Witcher-inspired RPG rather than a prototype with visible geometric shortcuts. The look is atmospheric, warm, and believable. Strong lighting, fog, composition, and material treatment carry the scene more than brute-force polygon density.
+Ashenveil should feel like a grounded dark-fantasy / Witcher-inspired RPG rather than a prototype with visible geometric shortcuts. The look is atmospheric, warm, and believable. Strong lighting, fog, composition, and material treatment carry the scene more than brute-force polygon density.
 
 ## Key Visual Principles
 

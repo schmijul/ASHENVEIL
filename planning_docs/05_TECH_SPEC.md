@@ -113,7 +113,7 @@ Use autoloads instead of component-local state:
 
 ### 3D Models
 - **Format:** GLB / glTF
-- **Style:** Stylized-realistic Gothic / Witcher atmosphere
+- **Style:** Stylized-realistic dark-fantasy / Witcher atmosphere
 - **Generation strategy for prototype:** Use procedural or imported GLB assets, but keep the visual language grounded and believable
 - **Asset classes:** player, NPCs, boars, rabbit, trees, buildings, crystals, props
 
