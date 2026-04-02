@@ -54,12 +54,6 @@ const initialCameraState = {
   distance: 9.5,
 };
 
-const initialInteractionState = {
-  focusedNpcId: null,
-  activeNpcId: null,
-  dialogueOpen: false,
-};
-
 const initialCombatState = {
   combatMode: false,
   isAttacking: false,
@@ -99,7 +93,6 @@ export const useGameStore = create((set) => ({
   world: { ...initialWorldState },
   controls: { ...initialControlsState },
   camera: { ...initialCameraState },
-  interaction: { ...initialInteractionState },
   combat: { ...initialCombatState },
   setPlayerPosition: (position) =>
     set((state) => ({
@@ -139,76 +132,6 @@ export const useGameStore = create((set) => ({
           : {}),
       },
     })),
-  setFocusedNpc: (npcId) =>
-    set((state) => {
-      if (state.interaction.focusedNpcId === npcId) {
-        return state;
-      }
-
-      return {
-        interaction: {
-          ...state.interaction,
-          focusedNpcId: npcId,
-        },
-      };
-    }),
-  startNpcInteraction: (npcId) =>
-    set((state) => ({
-      interaction: {
-        ...state.interaction,
-        activeNpcId: npcId,
-        dialogueOpen: Boolean(npcId),
-      },
-      world: {
-        ...state.world,
-        questFlags: {
-          ...state.world.questFlags,
-          ...(npcId === "maren" ? { metMaren: true } : {}),
-        },
-      },
-    })),
-  endNpcInteraction: () =>
-    set((state) => ({
-      interaction: {
-        ...state.interaction,
-        activeNpcId: null,
-        dialogueOpen: false,
-      },
-    })),
-  interact: () =>
-    set((state) => {
-      if (state.interaction.dialogueOpen) {
-        return {
-          interaction: {
-            ...state.interaction,
-            activeNpcId: null,
-            dialogueOpen: false,
-          },
-        };
-      }
-
-      if (!state.interaction.focusedNpcId) {
-        state.collectNearbyLoot(state.player.position);
-        return state;
-      }
-
-      return {
-        interaction: {
-          ...state.interaction,
-          activeNpcId: state.interaction.focusedNpcId,
-          dialogueOpen: true,
-        },
-        world: {
-          ...state.world,
-          questFlags: {
-            ...state.world.questFlags,
-            ...(state.interaction.focusedNpcId === "maren"
-              ? { metMaren: true }
-              : {}),
-          },
-        },
-      };
-    }),
   setCombatState: (patch) =>
     set((state) => ({
       combat:
@@ -740,7 +663,6 @@ export const useGameStore = create((set) => ({
       world: { ...initialWorldState },
       controls: { ...initialControlsState },
       camera: { ...initialCameraState },
-      interaction: { ...initialInteractionState },
       combat: { ...initialCombatState },
     }),
 }));
@@ -751,6 +673,5 @@ export const gameStoreDefaults = {
   initialQuestFlags,
   initialControlsState,
   initialCameraState,
-  initialInteractionState,
   initialCombatState,
 };

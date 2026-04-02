@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useFrame } from "@react-three/fiber";
+import { useDialogueStore } from "../../store/dialogueStore";
 import { useGameStore } from "../../store/gameStore";
 import { findNearestNpc } from "../../utils/npcInteraction";
 import { buildNpcPlacements, NPC_INTERACTION_RADIUS } from "../../utils/npcPlacement";
@@ -10,23 +11,23 @@ export default function NPCSystem() {
   const placements = useMemo(() => buildNpcPlacements({ seed: 7 }), []);
 
   useFrame(() => {
-    const { player, interaction, setFocusedNpc, endNpcInteraction } =
-      useGameStore.getState();
+    const { player } = useGameStore.getState();
+    const dialogue = useDialogueStore.getState();
 
     const nearestNpc = findNearestNpc(
       player.position,
       placements,
       NPC_INTERACTION_RADIUS,
     );
-    setFocusedNpc(nearestNpc?.id ?? null);
+    dialogue.setFocusedNpc(nearestNpc?.id ?? null);
 
-    if (!interaction.activeNpcId || !interaction.dialogueOpen) {
+    if (!dialogue.activeNpcId || !dialogue.isOpen) {
       return;
     }
 
-    const activeNpc = placements.find((npc) => npc.id === interaction.activeNpcId);
+    const activeNpc = placements.find((npc) => npc.id === dialogue.activeNpcId);
     if (!activeNpc) {
-      endNpcInteraction();
+      dialogue.closeDialogue();
       return;
     }
 
@@ -36,7 +37,7 @@ export default function NPCSystem() {
     );
 
     if (distance > CONVERSATION_BREAK_RADIUS) {
-      endNpcInteraction();
+      dialogue.closeDialogue();
     }
   });
 

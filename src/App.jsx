@@ -1,7 +1,7 @@
 import { Canvas } from "@react-three/fiber";
 import { Physics } from "@react-three/rapier";
+import DialogueBox from "./components/ui/DialogueBox";
 import InteractionPrompt from "./components/ui/InteractionPrompt";
-import NpcDialoguePreview from "./components/ui/NpcDialoguePreview";
 import Scene from "./components/world/Scene";
 
 export default function App() {
@@ -21,7 +21,7 @@ export default function App() {
       </Canvas>
       <div className="ui-layer">
         <InteractionPrompt />
-        <NpcDialoguePreview />
+        <DialogueBox />
       </div>
     </div>
   );

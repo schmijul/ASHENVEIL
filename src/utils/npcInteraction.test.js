@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildNpcPlacements } from "./npcPlacement";
-import { findNearestNpc, getFacingYaw, getNpcPreviewText } from "./npcInteraction";
+import { findNearestNpc, getFacingYaw, getNpcDefinition } from "./npcInteraction";
 
 describe("npcInteraction", () => {
   it("finds the nearest NPC inside interaction range", () => {
@@ -29,7 +29,7 @@ describe("npcInteraction", () => {
     expect(yaw).toBeCloseTo(0);
   });
 
-  it("uses the first JSON node for the preview panel", () => {
-    expect(getNpcPreviewText("maren")).toContain("You're awake");
+  it("resolves NPC definitions from JSON data", () => {
+    expect(getNpcDefinition("maren")?.role).toBe("Village Elder");
   });
 });

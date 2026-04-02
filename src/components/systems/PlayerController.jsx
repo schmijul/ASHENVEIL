@@ -1,5 +1,6 @@
 import { useFrame } from "@react-three/fiber";
 import { COMBAT_CONSTANTS } from "../../utils/combatMath";
+import { useDialogueStore } from "../../store/dialogueStore";
 import { useGameStore } from "../../store/gameStore";
 import { resolvePlayerVelocity } from "../../utils/playerMovement";
 
@@ -11,13 +12,16 @@ export default function PlayerController({ bodyRef }) {
     }
 
     const { controls, camera, combat, setPlayerRotation } = useGameStore.getState();
+    const dialogueOpen = useDialogueStore.getState().isOpen;
     const { velocity } = resolvePlayerVelocity({
       input: controls,
       cameraYaw: camera.yaw,
       walkSpeed: 4.3,
       sprintSpeed: 6.9,
     });
-    let nextVelocity = velocity;
+    let nextVelocity = dialogueOpen
+      ? { x: 0, y: 0, z: 0 }
+      : velocity;
 
     if (combat.isDodging) {
       nextVelocity = {
@@ -51,7 +55,7 @@ export default function PlayerController({ bodyRef }) {
       true,
     );
 
-    if (horizontalSpeed > 0.01) {
+    if (!dialogueOpen && horizontalSpeed > 0.01) {
       setPlayerRotation(Math.atan2(nextVelocity.x, nextVelocity.z));
     }
   });

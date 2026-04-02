@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useThree } from "@react-three/fiber";
+import { useDialogueStore } from "../../store/dialogueStore";
 import { useGameStore } from "../../store/gameStore";
 import { resolveMovementVector } from "../../utils/playerMovement";
 
@@ -25,16 +26,19 @@ export default function InputManager() {
       setControlState,
       setCameraOrbit,
       resetControls,
-      interact,
       startLightAttack,
       beginGuard,
       releaseGuard,
       triggerDodge,
-      endNpcInteraction,
     } =
       useGameStore.getState();
 
     const onKeyDown = (event) => {
+      const dialogueStore = useDialogueStore.getState();
+      if (dialogueStore.isOpen && event.code !== "Escape") {
+        return;
+      }
+
       const control = CONTROL_CODES[event.code];
       if (control) {
         setControlState(control, true);
@@ -63,15 +67,26 @@ export default function InputManager() {
       }
 
       if (event.code === "KeyE") {
-        interact();
+        const dialogueStore = useDialogueStore.getState();
+        if (dialogueStore.focusedNpcId || dialogueStore.isOpen) {
+          dialogueStore.requestInteraction();
+          return;
+        }
+
+        const snapshot = useGameStore.getState();
+        snapshot.collectNearbyLoot(snapshot.player.position);
       }
 
       if (event.code === "Escape") {
-        endNpcInteraction();
+        useDialogueStore.getState().closeDialogue();
       }
     };
     const onBlur = () => resetControls();
     const onPointerDown = (event) => {
+      if (useDialogueStore.getState().isOpen) {
+        return;
+      }
+
       if (event.button !== 0 && event.button !== 2) {
         return;
       }

@@ -1,9 +1,9 @@
-import { useGameStore } from "../../store/gameStore";
-import { getNpcDefinition } from "../../utils/npcInteraction";
+import { useDialogueStore } from "../../store/dialogueStore";
+import { getNpcDefinition } from "../../utils/dialogueEngine";
 
 export default function InteractionPrompt() {
-  const focusedNpcId = useGameStore((state) => state.interaction.focusedNpcId);
-  const dialogueOpen = useGameStore((state) => state.interaction.dialogueOpen);
+  const focusedNpcId = useDialogueStore((state) => state.focusedNpcId);
+  const dialogueOpen = useDialogueStore((state) => state.isOpen);
 
   if (!focusedNpcId || dialogueOpen) {
     return null;

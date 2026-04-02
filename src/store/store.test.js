@@ -1,12 +1,14 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { COMBAT_CONSTANTS } from "../utils/combatMath";
 import { createBoarTarget } from "../utils/boarAI";
+import { useDialogueStore } from "./dialogueStore";
 import { useFactionStore } from "./factionStore";
 import { useGameStore } from "./gameStore";
 import { useInventoryStore } from "./inventoryStore";
 import { useQuestStore } from "./questStore";
 
 const resetStores = () => {
+  useDialogueStore.getState().resetDialogue();
   useGameStore.getState().resetGameState();
   useInventoryStore.getState().clearInventory();
   useQuestStore.getState().resetAllQuests();
@@ -45,24 +47,6 @@ describe("gameStore", () => {
 
     expect(nextState.world.questFlags.sold_first_meat).toBe(true);
     expect(nextState.player.gold).toBe(0);
-  });
-
-  it("opens and closes NPC interactions through the shared interact action", () => {
-    const gameStore = useGameStore.getState();
-
-    gameStore.setFocusedNpc("maren");
-    gameStore.interact();
-    let nextState = useGameStore.getState();
-
-    expect(nextState.interaction.activeNpcId).toBe("maren");
-    expect(nextState.interaction.dialogueOpen).toBe(true);
-    expect(nextState.world.questFlags.metMaren).toBe(true);
-
-    gameStore.interact();
-    nextState = useGameStore.getState();
-
-    expect(nextState.interaction.activeNpcId).toBeNull();
-    expect(nextState.interaction.dialogueOpen).toBe(false);
   });
 
   it("starts light and heavy combat actions while spending stamina", () => {

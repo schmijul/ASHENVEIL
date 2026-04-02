@@ -30,13 +30,3 @@ export const findNearestNpc = (
 
 export const getFacingYaw = (fromPosition, targetPosition) =>
   Math.atan2(targetPosition[0] - fromPosition[0], targetPosition[2] - fromPosition[2]);
-
-export const getNpcPreviewText = (npcId) => {
-  const definition = getNpcDefinition(npcId);
-  if (!definition) {
-    return "";
-  }
-
-  const firstNode = Object.values(definition.dialogue ?? {})[0];
-  return firstNode?.text ?? "";
-};

@@ -2,6 +2,7 @@ import { useMemo, useRef } from "react";
 import { Text } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { getFacingYaw } from "../../utils/npcInteraction";
+import { useDialogueStore } from "../../store/dialogueStore";
 import { useGameStore } from "../../store/gameStore";
 
 const npcColorMap = {
@@ -28,9 +29,10 @@ export default function NPC({ npc }) {
       return;
     }
 
-    const { interaction, player } = useGameStore.getState();
-    const isFocused = interaction.focusedNpcId === npc.id;
-    const isActive = interaction.activeNpcId === npc.id && interaction.dialogueOpen;
+    const dialogue = useDialogueStore.getState();
+    const { player } = useGameStore.getState();
+    const isFocused = dialogue.focusedNpcId === npc.id;
+    const isActive = dialogue.activeNpcId === npc.id && dialogue.isOpen;
     const targetYaw = isActive
       ? getFacingYaw(npc.position, player.position)
       : npc.defaultYaw;
