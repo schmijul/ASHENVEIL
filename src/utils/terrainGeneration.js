@@ -143,7 +143,7 @@ export const buildTerrainData = ({
   return {
     positions,
     colors,
-    indices: new Uint32Array(indices),
+    indices: new Uint16Array(indices),
     segmentCount: segments,
     size,
   };
