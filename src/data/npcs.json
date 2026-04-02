@@ -1,0 +1,202 @@
+{
+  "npcs": [
+    {
+      "id": "maren",
+      "name": "Maren",
+      "role": "Village Elder",
+      "location": "marens_house",
+      "dialogue": {
+        "initial_wakeup": {
+          "text": "You're awake. Good. We found you three nights ago, lying in the mud after that Aether storm. You're lucky to be alive. I'm Maren — I run what's left of this village.",
+          "options": [
+            { "text": "Where am I?", "next": "where_am_i" },
+            { "text": "What happened to me?", "next": "what_happened" },
+            { "text": "What do you need from me?", "next": "first_quest" }
+          ]
+        },
+        "where_am_i": {
+          "text": "Grauweiler. A hunting village at the forest's edge. We don't get visitors. Especially not ones that fall from Aether storms.",
+          "options": [
+            { "text": "What do you need from me?", "next": "first_quest" }
+          ]
+        },
+        "what_happened": {
+          "text": "You tell me. You had nothing on you. No name, no papers, no memory by the looks of it. All I know is you survived an Aether storm. That alone makes you unusual.",
+          "options": [
+            { "text": "What do you need from me?", "next": "first_quest" }
+          ]
+        },
+        "first_quest": {
+          "text": "You eat, you work. Simple as that. We need hunters. Take this knife, head into the forest, and bring back three boar pelts. Sell the meat to Korvin at the market — he'll pay fair.",
+          "action": "startQuest:hunt_boars",
+          "giveItem": "hunting_knife",
+          "options": [
+            { "text": "I'll get it done.", "next": "quest_accepted" }
+          ]
+        },
+        "quest_accepted": {
+          "text": "Good. Don't go too deep into the forest. There are... things in there that a knife won't help with.",
+          "action": "closeDialogue"
+        },
+        "hunt_complete": {
+          "text": "You handled yourself well out there. Korvin told me you sold the meat. Maybe you'll be useful after all.",
+          "conditions": { "questComplete": "sell_to_korvin" },
+          "options": [
+            { "text": "Anything else you need?", "next": "investigate_quest" }
+          ]
+        },
+        "investigate_quest": {
+          "text": "Actually, yes. Something spooked the animals last night. Deep in the forest — past where you hunted. I need someone to check it out. Careful, though.",
+          "action": "startQuest:investigate_forest",
+          "options": [
+            { "text": "I'll take a look.", "action": "closeDialogue" }
+          ]
+        },
+        "village_destroyed": {
+          "text": "They came for you. The soldiers — Kernwall. They detected the crystal when you touched it. This is... this is because of you. No — I don't blame you. But you can't stay. Go. Kernwall, Flimmermoor, Hohensang — someone out there knows what you are. Find out. Before they find you again.",
+          "action": "startQuest:prolog_complete",
+          "options": [
+            { "text": "I'm sorry.", "next": "farewell" },
+            { "text": "I'll find answers.", "next": "farewell" }
+          ]
+        },
+        "farewell": {
+          "text": "Don't be sorry. Be alive. Now go.",
+          "action": "closeDialogue"
+        }
+      }
+    },
+    {
+      "id": "korvin",
+      "name": "Korvin",
+      "role": "Trader",
+      "location": "market_square",
+      "dialogue": {
+        "greeting": {
+          "text": "Ah, the stranger. Maren told me you'd come. Got something to sell?",
+          "options": [
+            { "text": "I want to trade.", "action": "openTrade" },
+            { "text": "What can you tell me about this place?", "next": "about_village" },
+            { "text": "Nevermind.", "action": "closeDialogue" }
+          ]
+        },
+        "about_village": {
+          "text": "Grauweiler. Used to be bigger. People leave when the Aether gets worse. Storms come more often now. Crystal growths creep closer every year. We'll be swallowed eventually.",
+          "options": [
+            { "text": "I want to trade.", "action": "openTrade" },
+            { "text": "That's grim.", "action": "closeDialogue" }
+          ]
+        },
+        "after_first_sale": {
+          "text": "Fresh meat, good. Keep it coming and we'll get along fine.",
+          "conditions": { "questFlag": "sold_first_meat" },
+          "options": [
+            { "text": "I want to trade.", "action": "openTrade" },
+            { "text": "See you around.", "action": "closeDialogue" }
+          ]
+        }
+      },
+      "inventory": [
+        "iron_sword",
+        "padded_vest",
+        "health_potion",
+        "health_potion",
+        "health_potion"
+      ]
+    },
+    {
+      "id": "hagen",
+      "name": "Hagen",
+      "role": "Blacksmith",
+      "location": "forge",
+      "dialogue": {
+        "greeting": {
+          "text": "You're the one Maren pulled out of the storm? Hm. You look tougher than you should. Need anything forged, come to me.",
+          "options": [
+            { "text": "Can you improve my weapon?", "next": "upgrade_info" },
+            { "text": "I found a boar tusk.", "next": "tusk_quest", "conditions": { "hasItem": "boar_tusk" } },
+            { "text": "Just looking.", "action": "closeDialogue" }
+          ]
+        },
+        "upgrade_info": {
+          "text": "I could reinforce that knife of yours. But I need material. Bring me a boar tusk — those things are harder than they look. I'll make your blade worth swinging.",
+          "action": "startQuest:hagen_tusk",
+          "options": [
+            { "text": "I'll find one.", "action": "closeDialogue" }
+          ]
+        },
+        "tusk_quest": {
+          "text": "A good one too. Give me a moment...",
+          "action": "completeQuest:hagen_tusk",
+          "removeItem": "boar_tusk",
+          "giveItem": "reinforced_knife",
+          "options": [
+            { "text": "Thanks, Hagen.", "action": "closeDialogue" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "lotte",
+      "name": "Lotte",
+      "role": "Herbalist",
+      "location": "lottes_house",
+      "dialogue": {
+        "greeting": {
+          "text": "Oh! The newcomer. You look healthy enough. I'm Lotte — I make remedies. If you're heading into the forest, could you gather some herbs for me? I need Moonleaf, Thornroot, and Bittermoss.",
+          "action": "startQuest:lotte_herbs",
+          "options": [
+            { "text": "Sure, I'll keep an eye out.", "action": "closeDialogue" },
+            { "text": "What do I get?", "next": "reward_info" }
+          ]
+        },
+        "reward_info": {
+          "text": "Two health potions. Trust me, out here you'll need them.",
+          "options": [
+            { "text": "Deal.", "action": "closeDialogue" }
+          ]
+        },
+        "herbs_collected": {
+          "text": "You found them all! Perfect condition too. Here — two health potions, as promised. Be careful out there.",
+          "conditions": { "hasItem": ["herb_moonleaf", "herb_thornroot", "herb_bittermoss"] },
+          "action": "completeQuest:lotte_herbs",
+          "removeItem": ["herb_moonleaf", "herb_thornroot", "herb_bittermoss"],
+          "giveItem": ["health_potion", "health_potion"],
+          "options": [
+            { "text": "Thank you, Lotte.", "action": "closeDialogue" }
+          ]
+        }
+      }
+    },
+    {
+      "id": "ren",
+      "name": "Ren",
+      "role": "Hunter",
+      "location": "forest_edge",
+      "dialogue": {
+        "greeting": {
+          "text": "You're hunting with that? Maren's knife? You'll get killed eventually. Let me show you how to swing properly.",
+          "options": [
+            { "text": "Teach me.", "next": "training", "action": "startQuest:ren_training" },
+            { "text": "I'm fine.", "action": "closeDialogue" }
+          ]
+        },
+        "training": {
+          "text": "Alright. See that stump? Hit it with a heavy attack. Hold your right mouse button, let the weight carry the blade. When you feel it — release.",
+          "action": "startCombatTutorial:heavy_attack",
+          "options": [
+            { "text": "[Practice heavy attack on stump]", "action": "closeDialogue" }
+          ]
+        },
+        "training_complete": {
+          "text": "Not bad. You've got instinct. Now get out there and use it on something that hits back.",
+          "conditions": { "questFlag": "heavy_attack_learned" },
+          "action": "completeQuest:ren_training",
+          "options": [
+            { "text": "Thanks.", "action": "closeDialogue" }
+          ]
+        }
+      }
+    }
+  ]
+}
