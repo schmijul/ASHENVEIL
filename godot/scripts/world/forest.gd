@@ -9,14 +9,18 @@ const BUSH_COUNT := 260
 const ROCK_COUNT := 55
 const GRASS_COUNT := 3200
 const FLOWER_COUNT := 420
+const LOG_COUNT := 75
+const MUSHROOM_COUNT := 240
 
 func _ready() -> void:
 	_build_tree_layers()
 	_build_bush_layer()
 	_build_rocks()
+	_build_logs()
 	_build_forest_floor()
 	_build_grass_layer()
 	_build_flower_layer()
+	_build_mushrooms()
 	_spawn_boars()
 
 func _build_tree_layers() -> void:
@@ -152,6 +156,30 @@ func _build_rocks() -> void:
 		rock.material_override = mat
 		add_child(rock)
 
+func _build_logs() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 2401
+	for _i in range(LOG_COUNT):
+		var log := MeshInstance3D.new()
+		var mesh := CylinderMesh.new()
+		mesh.top_radius = rng.randf_range(0.12, 0.22)
+		mesh.bottom_radius = mesh.top_radius * rng.randf_range(0.95, 1.15)
+		mesh.height = rng.randf_range(1.2, 3.4)
+		mesh.radial_segments = 8
+		log.mesh = mesh
+		log.position = Vector3(rng.randf_range(-55.0, 55.0), 0.16, rng.randf_range(-56.0, 48.0))
+		log.rotation = Vector3(PI * 0.5 + rng.randf_range(-0.2, 0.2), rng.randf() * TAU, rng.randf_range(-0.2, 0.2))
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color(
+			rng.randf_range(0.27, 0.36),
+			rng.randf_range(0.19, 0.25),
+			rng.randf_range(0.14, 0.19),
+			1.0
+		)
+		mat.roughness = 0.98
+		log.material_override = mat
+		add_child(log)
+
 func _build_forest_floor() -> void:
 	var path := MeshInstance3D.new()
 	var path_mesh := PlaneMesh.new()
@@ -256,6 +284,45 @@ func _build_flower_layer() -> void:
 	instance.multimesh = mm
 	instance.material_override = mat
 	add_child(instance)
+
+func _build_mushrooms() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 5012
+	for _i in range(MUSHROOM_COUNT):
+		var node := Node3D.new()
+		node.position = Vector3(rng.randf_range(-47.0, 47.0), 0.04, rng.randf_range(-52.0, 44.0))
+		add_child(node)
+
+		var stem := MeshInstance3D.new()
+		var stem_mesh := CylinderMesh.new()
+		stem_mesh.top_radius = 0.02
+		stem_mesh.bottom_radius = 0.03
+		stem_mesh.height = rng.randf_range(0.08, 0.16)
+		stem.mesh = stem_mesh
+		stem.position = Vector3(0, stem_mesh.height * 0.5, 0)
+		var stem_mat := StandardMaterial3D.new()
+		stem_mat.albedo_color = Color(0.82, 0.77, 0.66, 1.0)
+		stem_mat.roughness = 0.92
+		stem.material_override = stem_mat
+		node.add_child(stem)
+
+		var cap := MeshInstance3D.new()
+		var cap_mesh := SphereMesh.new()
+		cap_mesh.radius = rng.randf_range(0.05, 0.11)
+		cap_mesh.height = cap_mesh.radius * 0.9
+		cap.mesh = cap_mesh
+		cap.position = Vector3(0, stem_mesh.height + cap_mesh.height * 0.22, 0)
+		cap.scale = Vector3(1.2, 0.45, 1.2)
+		var cap_mat := StandardMaterial3D.new()
+		cap_mat.albedo_color = Color(
+			rng.randf_range(0.62, 0.84),
+			rng.randf_range(0.20, 0.44),
+			rng.randf_range(0.16, 0.30),
+			1.0
+		)
+		cap_mat.roughness = 0.94
+		cap.material_override = cap_mat
+		node.add_child(cap)
 
 func _spawn_boars() -> void:
 	for enemy_id in ["boar", "scarred_boar"]:

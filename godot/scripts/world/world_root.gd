@@ -10,6 +10,7 @@ const TERRAIN_HEIGHT := 3.8
 func _ready() -> void:
 	_build_environment()
 	_build_ground()
+	_build_distant_silhouette()
 	_attach_world_blocks()
 
 func _build_environment() -> void:
@@ -123,6 +124,32 @@ func _build_terrain_mesh() -> ArrayMesh:
 	arrays[Mesh.ARRAY_INDEX] = indices
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return mesh
+
+func _build_distant_silhouette() -> void:
+	var ring := Node3D.new()
+	add_child(ring)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 917
+	for i in range(28):
+		var m := MeshInstance3D.new()
+		var hill := SphereMesh.new()
+		hill.radius = rng.randf_range(9.0, 16.0)
+		hill.height = rng.randf_range(10.0, 18.0)
+		m.mesh = hill
+		var a := float(i) / 28.0 * TAU
+		var r := rng.randf_range(85.0, 110.0)
+		m.position = Vector3(cos(a) * r, rng.randf_range(2.0, 7.0), sin(a) * r - 8.0)
+		m.scale = Vector3(rng.randf_range(0.9, 1.5), rng.randf_range(0.5, 1.0), rng.randf_range(0.9, 1.5))
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color(
+			rng.randf_range(0.26, 0.34),
+			rng.randf_range(0.32, 0.40),
+			rng.randf_range(0.30, 0.37),
+			1.0
+		)
+		mat.roughness = 1.0
+		m.material_override = mat
+		ring.add_child(m)
 
 func _attach_world_blocks() -> void:
 	var forest := ForestScene.instantiate()

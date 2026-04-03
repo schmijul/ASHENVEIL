@@ -15,6 +15,8 @@ func _ready() -> void:
 	_build_houses()
 	_build_props()
 	_build_ground_details()
+	_build_chimney_smoke()
+	_build_window_lights()
 	_spawn_npcs()
 
 func _build_center_square() -> void:
@@ -173,6 +175,53 @@ func _build_ground_details() -> void:
 		mat.roughness = 0.96
 		hay.material_override = mat
 		add_child(hay)
+
+func _build_chimney_smoke() -> void:
+	var chimney_positions := [
+		Vector3(-11.5, 3.9, 23.4),
+		Vector3(-6.8, 3.9, 35.4),
+		Vector3(8.1, 3.9, 25.1),
+		Vector3(12.8, 3.9, 36.0),
+	]
+	for pos in chimney_positions:
+		var particles := GPUParticles3D.new()
+		particles.amount = 36
+		particles.lifetime = 2.7
+		particles.one_shot = false
+		particles.preprocess = 0.8
+		particles.position = pos
+		var material := ParticleProcessMaterial.new()
+		material.direction = Vector3(0.0, 1.0, 0.0)
+		material.initial_velocity_min = 0.4
+		material.initial_velocity_max = 1.0
+		material.gravity = Vector3(0.0, 0.25, 0.0)
+		material.scale_min = 0.18
+		material.scale_max = 0.44
+		material.color = Color(0.58, 0.56, 0.54, 0.55)
+		material.turbulence_enabled = true
+		material.turbulence_noise_scale = 0.7
+		particles.process_material = material
+		add_child(particles)
+
+func _build_window_lights() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 2201
+	for house_pos in HOUSE_POSITIONS:
+		for side in [-1.0, 1.0]:
+			var window := MeshInstance3D.new()
+			var mesh := QuadMesh.new()
+			mesh.size = Vector2(0.55, 0.75)
+			window.mesh = mesh
+			window.position = house_pos + Vector3(side * 2.45, 1.9, rng.randf_range(-1.3, 1.3))
+			window.rotation.y = PI * 0.5
+			var mat := StandardMaterial3D.new()
+			mat.albedo_color = Color(0.98, 0.82, 0.55, 1.0)
+			mat.emission_enabled = true
+			mat.emission = Color(0.96, 0.68, 0.42, 1.0)
+			mat.emission_energy_multiplier = 0.32
+			mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+			window.material_override = mat
+			add_child(window)
 
 func _spawn_npcs() -> void:
 	var location_positions := {
