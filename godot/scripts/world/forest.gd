@@ -24,8 +24,7 @@ func _ready() -> void:
 	_spawn_boars()
 
 func _build_tree_layers() -> void:
-	var tree_scene_resource: Resource = load(TREE_MODEL_PATH)
-	var tree_scene: PackedScene = tree_scene_resource as PackedScene
+	var tree_scene: PackedScene = _load_tree_scene()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 4207
 	for i in range(TREE_COUNT):
@@ -72,6 +71,12 @@ func _build_tree_layers() -> void:
 			_add_oak_canopy(tree, trunk_mesh.height, rng)
 		else:
 			_add_pine_canopy(tree, trunk_mesh.height)
+
+func _load_tree_scene() -> PackedScene:
+	if not ResourceLoader.exists(TREE_MODEL_PATH):
+		return null
+	var tree_scene_resource: Resource = ResourceLoader.load(TREE_MODEL_PATH)
+	return tree_scene_resource as PackedScene
 
 func _add_pine_canopy(tree: Node3D, trunk_height: float) -> void:
 	var canopy_material := StandardMaterial3D.new()
