@@ -44,9 +44,11 @@ void fragment() {
 	float noise = noise2d(world_pos.xz * noise_scale);
 	float macro_noise = noise2d(world_pos.xz * noise_scale * 0.35);
 	float broad_noise = noise2d(world_pos.xz * 0.012);
+	float breakup_noise = noise2d(world_pos.xz * 0.24);
 	float valley_mask = clamp(1.0 - h, 0.0, 1.0);
 	float path_center = sin(world_pos.z * 0.06) * 4.0;
-	float path_mask = clamp(1.0 - abs(world_pos.x - path_center) / 5.5, 0.0, 1.0);
+	float path_mask = clamp(1.0 - abs(world_pos.x - path_center) / 4.9, 0.0, 1.0);
+	float shoulder_mask = clamp(1.0 - abs(abs(world_pos.x - path_center) - 4.8) / 2.2, 0.0, 1.0);
 	vec2 uv = world_pos.xz * tex_scale;
 
 	vec3 ground_diff = texture(tex_ground_diff, uv).rgb;
@@ -57,17 +59,20 @@ void fragment() {
 	vec3 dirt_diff = texture(tex_dirt_diff, uv * 0.9).rgb;
 	float dirt_rough = texture(tex_dirt_rough, uv * 0.9).r;
 
-	vec3 base = mix(moss_color.rgb, grass_color.rgb, clamp(h * 0.88 + broad_noise * 0.18, 0.0, 1.0));
-	base = mix(base, soil_color.rgb, clamp((noise - 0.40) * 1.55 + valley_mask * 0.14, 0.0, 1.0));
-	base = mix(base, rock_color.rgb, clamp(slope * 1.1, 0.0, 1.0));
-	base += (macro_noise - 0.5) * 0.045;
-	base *= mix(vec3(0.92, 0.95, 0.89), vec3(1.02, 1.0, 0.96), h);
-	base = mix(base, ground_diff, 0.65);
-	base = mix(base, leaves_diff, clamp((macro_noise - 0.35) * 1.2, 0.0, 0.5));
-	base = mix(base, dirt_diff, path_mask * 0.85);
+	vec3 base = mix(moss_color.rgb * 0.82, grass_color.rgb, clamp(h * 0.92 + broad_noise * 0.22, 0.0, 1.0));
+	base = mix(base, soil_color.rgb * 0.94, clamp((noise - 0.38) * 1.45 + valley_mask * 0.22, 0.0, 1.0));
+	base = mix(base, rock_color.rgb * 0.86, clamp(slope * 1.25, 0.0, 1.0));
+	base += (macro_noise - 0.5) * 0.055;
+	base += (breakup_noise - 0.5) * 0.022;
+	base *= mix(vec3(0.82, 0.86, 0.78), vec3(1.06, 1.02, 0.97), h);
+	base = mix(base, ground_diff * vec3(0.86, 0.90, 0.82), 0.76);
+	base = mix(base, leaves_diff * vec3(0.84, 0.80, 0.72), clamp((macro_noise - 0.30) * 1.35 + shoulder_mask * 0.18, 0.0, 0.62));
+	base = mix(base, dirt_diff * vec3(0.92, 0.84, 0.74), path_mask * 0.94);
+	base = mix(base, soil_color.rgb * 0.88, shoulder_mask * 0.22);
+	base *= 1.0 - slope * 0.16;
 
 	ALBEDO = clamp(base, vec3(0.0), vec3(1.0));
-	ROUGHNESS = clamp(mix(mix(ground_rough, leaves_rough, 0.25), dirt_rough, path_mask) * roughness_value, 0.0, 1.0);
+	ROUGHNESS = clamp(mix(mix(ground_rough, leaves_rough, 0.34), dirt_rough, path_mask) * roughness_value, 0.0, 1.0);
 	METALLIC = 0.0;
-	NORMAL = normalize(mix(vec3(0.0, 0.0, 1.0), ground_nrm, 0.45));
+	NORMAL = normalize(mix(vec3(0.0, 0.0, 1.0), ground_nrm, 0.62));
 }

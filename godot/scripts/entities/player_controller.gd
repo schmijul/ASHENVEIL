@@ -12,9 +12,16 @@ const CharacterVisualFactoryScript := preload("res://scripts/entities/character_
 @export var camera_yaw_sensitivity := 0.85
 @export var camera_pitch_min := -0.48
 @export var camera_pitch_max := 0.18
+@export var camera_idle_distance := 2.75
+@export var camera_move_distance := 3.05
+@export var camera_idle_fov := 47.0
+@export var camera_move_fov := 50.0
+@export var camera_lerp_speed := 8.0
 
 @onready var visual: Node3D = $Visual
 @onready var head_pivot: Node3D = $HeadPivot
+@onready var spring_arm: SpringArm3D = $HeadPivot/SpringArm3D
+@onready var camera: Camera3D = $HeadPivot/SpringArm3D/Camera3D
 
 var _pitch := -0.1
 var _target_visual_yaw := 0.0
@@ -22,6 +29,7 @@ var _target_visual_yaw := 0.0
 func _ready() -> void:
 	_ensure_character_visual()
 	_apply_camera_pitch()
+	_update_camera_rig(0.0, 1.0)
 	GameState.register_player(self)
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -65,6 +73,9 @@ func _physics_process(delta: float) -> void:
 
 	move_and_slide()
 
+	var horizontal_speed := Vector2(velocity.x, velocity.z).length()
+	_update_camera_rig(horizontal_speed / sprint_speed, delta)
+
 	if movement != Vector3.ZERO:
 		var target_yaw: float = atan2(-movement.x, -movement.z)
 		rotation.y = lerp_angle(rotation.y, target_yaw, delta * 10.0)
@@ -73,7 +84,9 @@ func _physics_process(delta: float) -> void:
 		_target_visual_yaw = 0.0
 
 	visual.rotation.y = lerp_angle(visual.rotation.y, _target_visual_yaw, delta * 8.0)
-	visual.position.y = lerp(visual.position.y, 0.88 if is_on_floor() else 0.94, delta * 10.0)
+	visual.rotation.z = lerp_angle(visual.rotation.z, -movement.x * 0.03, delta * 4.5)
+	visual.position.y = lerp(visual.position.y, 0.84 if is_on_floor() else 0.90, delta * 10.0)
+	visual.position.x = lerp(visual.position.x, 0.0, delta * 10.0)
 
 	GameState.set_player_position(global_position)
 
@@ -84,6 +97,18 @@ func _ensure_character_visual() -> void:
 	for child in visual.get_children():
 		child.queue_free()
 	var factory := CharacterVisualFactoryScript.new()
-	var character_visual: Node3D = factory.create_character_visual("player")
+	var character_visual: Node3D = factory.create_character_visual("player", "player")
 	character_visual.name = "CharacterVisual"
 	visual.add_child(character_visual)
+
+func _update_camera_rig(movement_ratio: float, delta: float) -> void:
+	var t: float = clamp(movement_ratio, 0.0, 1.0)
+	var target_length: float = lerp(camera_idle_distance, camera_move_distance, t)
+	var target_x: float = lerp(0.72, 0.90, t)
+	var target_y: float = lerp(-0.12, -0.08, t)
+	var target_fov: float = lerp(camera_idle_fov, camera_move_fov, t)
+	var factor: float = clamp(delta * camera_lerp_speed, 0.0, 1.0)
+	spring_arm.spring_length = lerp(spring_arm.spring_length, target_length, factor)
+	spring_arm.position.x = lerp(spring_arm.position.x, target_x, factor)
+	spring_arm.position.y = lerp(spring_arm.position.y, target_y, factor)
+	camera.fov = lerp(camera.fov, target_fov, factor)

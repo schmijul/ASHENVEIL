@@ -14,6 +14,10 @@ const GRASS_COUNT := 1800
 const FLOWER_COUNT := 420
 const LOG_COUNT := 75
 const MUSHROOM_COUNT := 240
+const FERN_CLUSTER_COUNT := 240
+const STUMP_COUNT := 42
+const ROOT_CLUSTER_COUNT := 58
+const FIREFLY_SWARM_COUNT := 10
 
 func _ready() -> void:
 	_build_tree_layers()
@@ -21,9 +25,13 @@ func _ready() -> void:
 	_build_rocks()
 	_build_logs()
 	_build_forest_floor()
+	_build_fern_clusters()
+	_build_stumps()
+	_build_root_clusters()
 	_build_grass_layer()
 	_build_flower_layer()
 	_build_mushrooms()
+	_build_fireflies()
 	_spawn_boars()
 
 func _build_tree_layers() -> void:
@@ -148,22 +156,32 @@ func _build_bush_layer() -> void:
 		var pos: Vector3 = Vector3(cos(angle) * distance, 0.0, sin(angle) * distance - 8.0)
 		if abs(pos.x - sin(pos.z * 0.06) * 4.0) < 4.7 and pos.z > -30.0 and pos.z < 45.0:
 			continue
-		var bush := MeshInstance3D.new()
-		var bush_mesh := SphereMesh.new()
-		bush_mesh.radius = rng.randf_range(0.20, 0.48)
-		bush_mesh.height = bush_mesh.radius * 1.2
-		bush.mesh = bush_mesh
-		bush.position = pos + Vector3(0.16, 0.16, 0.0)
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color = Color(
-			rng.randf_range(0.19, 0.31),
-			rng.randf_range(0.33, 0.47),
-			rng.randf_range(0.16, 0.28),
-			1.0
-		)
-		mat.roughness = 0.97
-		bush.material_override = mat
-		add_child(bush)
+		var cluster := Node3D.new()
+		cluster.position = pos + Vector3(0.0, 0.04, 0.0)
+		cluster.rotation.y = rng.randf() * TAU
+		add_child(cluster)
+		var lobe_count := rng.randi_range(2, 4)
+		for lobe_index in range(lobe_count):
+			var bush := MeshInstance3D.new()
+			var bush_mesh := SphereMesh.new()
+			bush_mesh.radius = rng.randf_range(0.18, 0.44)
+			bush_mesh.height = bush_mesh.radius * rng.randf_range(1.0, 1.45)
+			bush.mesh = bush_mesh
+			bush.position = Vector3(
+				rng.randf_range(-0.28, 0.28),
+				bush_mesh.height * 0.35,
+				rng.randf_range(-0.28, 0.28)
+			)
+			var mat := StandardMaterial3D.new()
+			mat.albedo_color = Color(
+				rng.randf_range(0.18, 0.30),
+				rng.randf_range(0.31, 0.45),
+				rng.randf_range(0.15, 0.25),
+				1.0
+			)
+			mat.roughness = 0.98
+			bush.material_override = mat
+			cluster.add_child(bush)
 
 func _build_rocks() -> void:
 	var rng := RandomNumberGenerator.new()
@@ -212,6 +230,44 @@ func _build_logs() -> void:
 		log.material_override = mat
 		add_child(log)
 
+func _build_stumps() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1811
+	for _i in range(STUMP_COUNT):
+		var stump := MeshInstance3D.new()
+		var mesh := CylinderMesh.new()
+		mesh.top_radius = rng.randf_range(0.16, 0.32)
+		mesh.bottom_radius = mesh.top_radius * rng.randf_range(1.05, 1.22)
+		mesh.height = rng.randf_range(0.22, 0.58)
+		mesh.radial_segments = 10
+		stump.mesh = mesh
+		stump.position = Vector3(rng.randf_range(-52.0, 52.0), mesh.height * 0.5 - 0.02, rng.randf_range(-52.0, 46.0))
+		stump.rotation.y = rng.randf() * TAU
+		var mat := _tree_bark_material()
+		stump.material_override = mat
+		add_child(stump)
+
+func _build_root_clusters() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 6613
+	for _i in range(ROOT_CLUSTER_COUNT):
+		var cluster := Node3D.new()
+		cluster.position = Vector3(rng.randf_range(-50.0, 50.0), 0.03, rng.randf_range(-50.0, 44.0))
+		cluster.rotation.y = rng.randf() * TAU
+		add_child(cluster)
+		for branch_index in range(rng.randi_range(2, 4)):
+			var root := MeshInstance3D.new()
+			var mesh := CylinderMesh.new()
+			mesh.top_radius = 0.035
+			mesh.bottom_radius = rng.randf_range(0.06, 0.1)
+			mesh.height = rng.randf_range(0.8, 1.7)
+			mesh.radial_segments = 6
+			root.mesh = mesh
+			root.position = Vector3(rng.randf_range(-0.18, 0.18), 0.07 + float(branch_index) * 0.015, rng.randf_range(-0.18, 0.18))
+			root.rotation = Vector3(PI * 0.5 + rng.randf_range(-0.18, 0.18), rng.randf() * TAU, rng.randf_range(-0.15, 0.15))
+			root.material_override = _tree_bark_material()
+			cluster.add_child(root)
+
 func _build_forest_floor() -> void:
 	var path := MeshInstance3D.new()
 	var path_mesh := PlaneMesh.new()
@@ -237,6 +293,62 @@ func _build_forest_floor() -> void:
 		patch_material.roughness = 1.0
 		patch.material_override = patch_material
 		add_child(patch)
+
+	for side in [-1.0, 1.0]:
+		for i in range(16):
+			var edge_cluster := Node3D.new()
+			edge_cluster.position = Vector3(side * (4.8 + sin(float(i) * 0.8) * 1.5), 0.04, -30.0 + float(i) * 5.4)
+			edge_cluster.rotation.y = float(i) * 0.35
+			add_child(edge_cluster)
+			for branch_index in range(3):
+				var branch := MeshInstance3D.new()
+				var branch_mesh := CylinderMesh.new()
+				branch_mesh.top_radius = 0.03
+				branch_mesh.bottom_radius = 0.055
+				branch_mesh.height = 0.65 + float(branch_index) * 0.16
+				branch_mesh.radial_segments = 5
+				branch.mesh = branch_mesh
+				branch.position = Vector3(0.0, 0.08 + float(branch_index) * 0.03, float(branch_index) * 0.12 - 0.12)
+				branch.rotation = Vector3(PI * 0.5 + 0.12 * float(branch_index), 0.18 * float(branch_index), 0.14 * side)
+				branch.material_override = _tree_bark_material()
+				edge_cluster.add_child(branch)
+
+func _build_fern_clusters() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 9811
+	for _i in range(FERN_CLUSTER_COUNT):
+		var cluster := Node3D.new()
+		cluster.position = Vector3(rng.randf_range(-55.0, 55.0), 0.02, rng.randf_range(-52.0, 46.0))
+		if abs(cluster.position.x - sin(cluster.position.z * 0.06) * 4.0) < 3.6 and cluster.position.z > -30.0 and cluster.position.z < 45.0:
+			continue
+		cluster.rotation.y = rng.randf() * TAU
+		add_child(cluster)
+		var frond_count := rng.randi_range(3, 5)
+		for frond_index in range(frond_count):
+			var frond := MeshInstance3D.new()
+			var frond_mesh := PrismMesh.new()
+			frond_mesh.size = Vector3(rng.randf_range(0.12, 0.22), rng.randf_range(0.4, 0.8), rng.randf_range(0.5, 0.95))
+			frond.mesh = frond_mesh
+			frond.position = Vector3(
+				rng.randf_range(-0.14, 0.14),
+				frond_mesh.size.y * 0.38,
+				rng.randf_range(-0.14, 0.14)
+			)
+			frond.rotation = Vector3(
+				rng.randf_range(-0.18, 0.16),
+				float(frond_index) / float(frond_count) * TAU + rng.randf_range(-0.18, 0.18),
+				rng.randf_range(-0.68, -0.22)
+			)
+			var mat := StandardMaterial3D.new()
+			mat.albedo_color = Color(
+				rng.randf_range(0.18, 0.27),
+				rng.randf_range(0.34, 0.47),
+				rng.randf_range(0.13, 0.22),
+				1.0
+			)
+			mat.roughness = 0.97
+			frond.material_override = mat
+			cluster.add_child(frond)
 
 func _build_grass_layer() -> void:
 	var rng := RandomNumberGenerator.new()
@@ -394,6 +506,34 @@ func _build_mushrooms() -> void:
 		cap_mat.roughness = 0.94
 		cap.material_override = cap_mat
 		node.add_child(cap)
+
+func _build_fireflies() -> void:
+	for swarm_index in range(FIREFLY_SWARM_COUNT):
+		var particles := GPUParticles3D.new()
+		particles.amount = 22
+		particles.lifetime = 3.4
+		particles.one_shot = false
+		particles.preprocess = 1.6
+		particles.position = Vector3(
+			-20.0 + float(swarm_index % 5) * 9.0,
+			1.2 + float(swarm_index % 3) * 0.35,
+			-24.0 + float(swarm_index / 2) * 8.0
+		)
+		var process := ParticleProcessMaterial.new()
+		process.direction = Vector3(0.0, 0.12, 0.0)
+		process.initial_velocity_min = 0.02
+		process.initial_velocity_max = 0.08
+		process.angular_velocity_min = -0.6
+		process.angular_velocity_max = 0.6
+		process.scale_min = 0.02
+		process.scale_max = 0.05
+		process.color = Color(1.0, 0.92, 0.66, 0.72)
+		process.turbulence_enabled = true
+		process.turbulence_noise_scale = 0.6
+		process.orbit_velocity_min = 0.4
+		process.orbit_velocity_max = 0.9
+		particles.process_material = process
+		add_child(particles)
 
 func _spawn_boars() -> void:
 	for enemy_id in ["boar", "scarred_boar"]:

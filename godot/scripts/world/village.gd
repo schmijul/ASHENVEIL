@@ -15,6 +15,7 @@ func _ready() -> void:
 	_build_houses()
 	_build_props()
 	_build_ground_details()
+	_build_yard_boundaries()
 	_build_chimney_smoke()
 	_build_window_lights()
 	_spawn_npcs()
@@ -87,6 +88,14 @@ func _build_houses() -> void:
 		body.material_override = body_material
 		house.add_child(body)
 
+		var trim_band := MeshInstance3D.new()
+		var trim_mesh := BoxMesh.new()
+		trim_mesh.size = Vector3(width + 0.12, 0.2, depth + 0.14)
+		trim_band.mesh = trim_mesh
+		trim_band.position = Vector3(0, height * 0.72, 0)
+		trim_band.material_override = _wood_material(Color(0.42, 0.28, 0.18, 1.0))
+		house.add_child(trim_band)
+
 		var foundation := MeshInstance3D.new()
 		var foundation_mesh := BoxMesh.new()
 		foundation_mesh.size = Vector3(width + 0.3, 0.24, depth + 0.3)
@@ -133,6 +142,16 @@ func _build_houses() -> void:
 			post.material_override = post_mat
 			house.add_child(post)
 
+		for side in [-1.0, 1.0]:
+			var brace := MeshInstance3D.new()
+			var brace_mesh := BoxMesh.new()
+			brace_mesh.size = Vector3(0.16, height * 0.92, 0.16)
+			brace.mesh = brace_mesh
+			brace.position = Vector3(side * (width * 0.22), height * 0.5, depth * 0.52)
+			brace.rotation.z = 0.1 * side
+			brace.material_override = _wood_material(Color(0.33, 0.22, 0.15, 1.0))
+			house.add_child(brace)
+
 		var door := MeshInstance3D.new()
 		var door_mesh := BoxMesh.new()
 		door_mesh.size = Vector3(0.88, 1.62, 0.12)
@@ -143,6 +162,15 @@ func _build_houses() -> void:
 		door_material.roughness = 0.97
 		door.material_override = door_material
 		house.add_child(door)
+
+		for side in [-1.0, 1.0]:
+			var window_box := MeshInstance3D.new()
+			var window_box_mesh := BoxMesh.new()
+			window_box_mesh.size = Vector3(0.65, 0.12, 0.22)
+			window_box.mesh = window_box_mesh
+			window_box.position = Vector3(side * (width * 0.34), 1.45, depth * 0.52)
+			window_box.material_override = _wood_material(Color(0.37, 0.24, 0.15, 1.0))
+			house.add_child(window_box)
 
 func _build_props() -> void:
 	var rng := RandomNumberGenerator.new()
@@ -161,6 +189,10 @@ func _build_props() -> void:
 	_add_wagon(Vector3(-1.8, 0.02, 37.8), 0.42)
 	_add_firewood_stack(Vector3(9.0, 0.05, 40.2))
 	_add_firewood_stack(Vector3(-9.4, 0.05, 40.8))
+	_add_barrel_group(Vector3(11.8, 0.0, 28.3), 4)
+	_add_barrel_group(Vector3(-12.3, 0.0, 35.1), 3)
+	_add_clothesline(Vector3(-8.6, 0.0, 39.6), Vector3(-2.5, 0.0, 41.8))
+	_add_forge_canopy(Vector3(9.8, 0.0, 30.8))
 
 func _build_ground_details() -> void:
 	var rng := RandomNumberGenerator.new()
@@ -217,6 +249,39 @@ func _build_ground_details() -> void:
 		moss_mat.roughness = 1.0
 		moss.material_override = moss_mat
 		add_child(moss)
+
+	for _i in range(18):
+		var rake_line := MeshInstance3D.new()
+		var rake_mesh := BoxMesh.new()
+		rake_mesh.size = Vector3(rng.randf_range(0.5, 1.2), 0.01, 0.04)
+		rake_line.mesh = rake_mesh
+		rake_line.position = Vector3(rng.randf_range(-8.0, 8.0), 0.042, rng.randf_range(24.0, 40.0))
+		rake_line.rotation.y = rng.randf_range(-0.4, 0.4)
+		var rake_mat := StandardMaterial3D.new()
+		rake_mat.albedo_color = Color(0.39, 0.30, 0.18, 1.0)
+		rake_mat.roughness = 1.0
+		rake_line.material_override = rake_mat
+		add_child(rake_line)
+
+func _build_yard_boundaries() -> void:
+	for i in range(14):
+		var fence := MeshInstance3D.new()
+		var mesh := BoxMesh.new()
+		mesh.size = Vector3(1.8, 0.18, 0.12)
+		fence.mesh = mesh
+		fence.position = Vector3(-16.0 + float(i) * 2.4, 0.46, 20.8 + sin(float(i) * 0.65) * 0.8)
+		fence.rotation.y = 0.12
+		fence.material_override = _wood_material(Color(0.36, 0.24, 0.16, 1.0))
+		add_child(fence)
+
+	for i in range(8):
+		var stake := MeshInstance3D.new()
+		var stake_mesh := BoxMesh.new()
+		stake_mesh.size = Vector3(0.12, 0.9, 0.12)
+		stake.mesh = stake_mesh
+		stake.position = Vector3(-15.8 + float(i) * 4.4, 0.45, 20.8 + sin(float(i) * 0.65) * 0.8)
+		stake.material_override = _wood_material(Color(0.29, 0.19, 0.13, 1.0))
+		add_child(stake)
 
 func _build_chimney_smoke() -> void:
 	var chimney_positions := [
@@ -371,6 +436,15 @@ func _add_market_stall(pos: Vector3, tilt: float) -> void:
 	roof.material_override = _cloth_material(Color(0.72, 0.54, 0.30, 1.0))
 	stall.add_child(roof)
 
+	for slot in range(3):
+		var bundle := MeshInstance3D.new()
+		var bundle_mesh := BoxMesh.new()
+		bundle_mesh.size = Vector3(0.26, 0.18, 0.22)
+		bundle.mesh = bundle_mesh
+		bundle.position = Vector3(-0.48 + float(slot) * 0.44, 0.34, -0.1 + float(slot % 2) * 0.18)
+		bundle.material_override = _cloth_material(Color(0.58, 0.42, 0.24, 1.0))
+		stall.add_child(bundle)
+
 func _add_wagon(pos: Vector3, rotation_y: float) -> void:
 	var wagon := Node3D.new()
 	wagon.position = pos
@@ -414,6 +488,70 @@ func _add_firewood_stack(pos: Vector3) -> void:
 		log.rotation = Vector3(PI * 0.5, 0.0, float(i) * 0.3)
 		log.material_override = _wood_material(Color(0.32, 0.22, 0.15, 1.0))
 		stack.add_child(log)
+
+func _add_barrel_group(pos: Vector3, count: int) -> void:
+	var group := Node3D.new()
+	group.position = pos
+	add_child(group)
+	for i in range(count):
+		var barrel := MeshInstance3D.new()
+		var barrel_mesh := CylinderMesh.new()
+		barrel_mesh.top_radius = 0.24
+		barrel_mesh.bottom_radius = 0.27
+		barrel_mesh.height = 0.66 + float(i % 2) * 0.08
+		barrel_mesh.radial_segments = 12
+		barrel.mesh = barrel_mesh
+		barrel.position = Vector3(float(i % 2) * 0.52, barrel_mesh.height * 0.5, float(i / 2) * 0.46)
+		barrel.material_override = _wood_material(Color(0.34, 0.23, 0.16, 1.0))
+		group.add_child(barrel)
+
+func _add_clothesline(start_pos: Vector3, end_pos: Vector3) -> void:
+	var line_root := Node3D.new()
+	add_child(line_root)
+	for anchor in [start_pos, end_pos]:
+		var pole := MeshInstance3D.new()
+		var pole_mesh := CylinderMesh.new()
+		pole_mesh.top_radius = 0.05
+		pole_mesh.bottom_radius = 0.06
+		pole_mesh.height = 2.1
+		pole.mesh = pole_mesh
+		pole.position = anchor + Vector3(0.0, 1.05, 0.0)
+		pole.material_override = _wood_material(Color(0.32, 0.21, 0.14, 1.0))
+		line_root.add_child(pole)
+
+	var midpoint := (start_pos + end_pos) * 0.5 + Vector3(0.0, 1.65, 0.0)
+	for sheet_index in range(3):
+		var sheet := MeshInstance3D.new()
+		var sheet_mesh := QuadMesh.new()
+		sheet_mesh.size = Vector2(0.7, 0.9 - float(sheet_index) * 0.1)
+		sheet.mesh = sheet_mesh
+		sheet.position = midpoint + Vector3(-0.9 + float(sheet_index) * 0.8, -0.1 * abs(1 - sheet_index), 0.0)
+		sheet.rotation.y = 0.2
+		sheet.material_override = _cloth_material(Color(0.82 - float(sheet_index) * 0.08, 0.75 - float(sheet_index) * 0.04, 0.63, 1.0))
+		line_root.add_child(sheet)
+
+func _add_forge_canopy(pos: Vector3) -> void:
+	var canopy := Node3D.new()
+	canopy.position = pos
+	add_child(canopy)
+	for side in [-1.0, 1.0]:
+		for row in [-1.0, 1.0]:
+			var post := MeshInstance3D.new()
+			var post_mesh := BoxMesh.new()
+			post_mesh.size = Vector3(0.14, 2.1, 0.14)
+			post.mesh = post_mesh
+			post.position = Vector3(side * 0.95, 1.05, row * 0.75)
+			post.material_override = _wood_material(Color(0.33, 0.22, 0.15, 1.0))
+			canopy.add_child(post)
+
+	var roof := MeshInstance3D.new()
+	var roof_mesh := PrismMesh.new()
+	roof_mesh.size = Vector3(2.4, 0.62, 2.1)
+	roof.mesh = roof_mesh
+	roof.position = Vector3(0.0, 2.1, 0.0)
+	roof.rotation_degrees = Vector3(0, 90, 0)
+	roof.material_override = _cloth_material(Color(0.41, 0.28, 0.17, 1.0))
+	canopy.add_child(roof)
 
 func _wood_material(color: Color) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
