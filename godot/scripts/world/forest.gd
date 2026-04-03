@@ -2,6 +2,9 @@ extends Node3D
 
 const BOAR_SCENE := preload("res://scenes/entities/boar.tscn")
 const TREE_MODEL_PATH := "res://assets/models/tree1.glb"
+const TREE_BARK_DIFFUSE_PATH := "res://assets/textures/wood/bark_brown_02/diffuse.jpg"
+const TREE_BARK_ROUGHNESS_PATH := "res://assets/textures/wood/bark_brown_02/roughness.jpg"
+const TREE_BARK_NORMAL_PATH := "res://assets/textures/wood/bark_brown_02/normal_gl.jpg"
 const TREE_MODEL_BASE_SCALE := 0.38
 const FOREST_RADIUS := 58.0
 const TREE_COUNT := 130
@@ -61,9 +64,7 @@ func _build_tree_layers() -> void:
 		trunk_mesh.radial_segments = 14
 		trunk.mesh = trunk_mesh
 		trunk.position = Vector3(0, trunk_mesh.height * 0.5, 0)
-		var trunk_material := StandardMaterial3D.new()
-		trunk_material.albedo_color = Color(0.35, 0.24, 0.16, 1.0)
-		trunk_material.roughness = 0.93
+		var trunk_material := _tree_bark_material()
 		trunk.material_override = trunk_material
 		tree.add_child(trunk)
 
@@ -77,6 +78,32 @@ func _load_tree_scene() -> PackedScene:
 		return null
 	var tree_scene_resource: Resource = ResourceLoader.load(TREE_MODEL_PATH)
 	return tree_scene_resource as PackedScene
+
+func _tree_bark_material() -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.35, 0.24, 0.16, 1.0)
+	mat.roughness = 0.93
+	var diff := _load_texture_from_image(TREE_BARK_DIFFUSE_PATH)
+	var rough := _load_texture_from_image(TREE_BARK_ROUGHNESS_PATH)
+	var normal := _load_texture_from_image(TREE_BARK_NORMAL_PATH)
+	if diff != null:
+		mat.albedo_texture = diff
+	if rough != null:
+		mat.roughness_texture = rough
+	if normal != null:
+		mat.normal_enabled = true
+		mat.normal_texture = normal
+		mat.normal_scale = 0.7
+	return mat
+
+func _load_texture_from_image(path: String) -> Texture2D:
+	if not FileAccess.file_exists(path):
+		return null
+	var image := Image.new()
+	var error := image.load(path)
+	if error != OK:
+		return null
+	return ImageTexture.create_from_image(image)
 
 func _add_pine_canopy(tree: Node3D, trunk_height: float) -> void:
 	var canopy_material := StandardMaterial3D.new()

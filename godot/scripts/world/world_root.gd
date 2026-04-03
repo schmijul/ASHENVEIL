@@ -3,6 +3,7 @@ extends Node3D
 const ForestScene := preload("res://scenes/world/forest.tscn")
 const VillageScene := preload("res://scenes/world/village.tscn")
 const TERRAIN_SHADER := preload("res://shaders/terrain_surface.gdshader")
+const SKY_HDR_PATH := "res://assets/hdri/forest_slope_2k.hdr"
 const TERRAIN_SIZE := 170.0
 const TERRAIN_RESOLUTION := 96
 const TERRAIN_HEIGHT := 3.8
@@ -54,15 +55,32 @@ func _build_environment() -> void:
 
 func _build_sky() -> Sky:
 	var sky := Sky.new()
-	var material := ProceduralSkyMaterial.new()
-	material.sky_top_color = Color(0.54, 0.66, 0.78, 1.0)
-	material.sky_horizon_color = Color(0.89, 0.84, 0.74, 1.0)
-	material.ground_horizon_color = Color(0.40, 0.35, 0.28, 1.0)
-	material.ground_bottom_color = Color(0.18, 0.20, 0.16, 1.0)
-	material.sun_angle_max = 40.0
-	material.sun_curve = 0.13
-	sky.sky_material = material
+	var hdr_texture := _load_texture_from_image(SKY_HDR_PATH)
+	if hdr_texture != null:
+		var pano := PanoramaSkyMaterial.new()
+		pano.panorama = hdr_texture
+		pano.energy_multiplier = 1.04
+		sky.sky_material = pano
+		return sky
+
+	var procedural := ProceduralSkyMaterial.new()
+	procedural.sky_top_color = Color(0.54, 0.66, 0.78, 1.0)
+	procedural.sky_horizon_color = Color(0.89, 0.84, 0.74, 1.0)
+	procedural.ground_horizon_color = Color(0.40, 0.35, 0.28, 1.0)
+	procedural.ground_bottom_color = Color(0.18, 0.20, 0.16, 1.0)
+	procedural.sun_angle_max = 40.0
+	procedural.sun_curve = 0.13
+	sky.sky_material = procedural
 	return sky
+
+func _load_texture_from_image(path: String) -> Texture2D:
+	if not FileAccess.file_exists(path):
+		return null
+	var image := Image.new()
+	var error := image.load(path)
+	if error != OK:
+		return null
+	return ImageTexture.create_from_image(image)
 
 func _build_ground() -> void:
 	var ground_body := StaticBody3D.new()

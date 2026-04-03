@@ -20,11 +20,19 @@ Ashenveil is being migrated to a native Godot 4 action RPG for Ubuntu. The activ
 Once the native project is in place:
 
 ```bash
-cd godot
-godot4 --editor
+cd /home/schmijul/fun/ASHENVEIL
+tools/asset_pipeline/sync_assets.sh
+./.tools/Godot_v4.3-stable_linux.x86_64 --path ./godot
 ```
 
 Or open the Godot project directly through the editor and run the main scene from there.
+
+Run legacy unit tests:
+
+```bash
+cd /home/schmijul/fun/ASHENVEIL/legacy_web
+npm test
+```
 
 ## Project Layout
 
@@ -44,3 +52,5 @@ planning_docs/   # design, tech, art, and roadmap docs
 - `planning_docs/data/` stays untouched unless a doc update explicitly requires it
 - Runtime gameplay data should stay external and editable
 - Visual direction is driven by the reference images in `design_inspiration/`
+- Third-party visual assets are synced from `tools/asset_pipeline/asset_manifest.json`
+- License tracking for downloaded assets is written to `godot/assets/THIRD_PARTY_ASSETS.md`
