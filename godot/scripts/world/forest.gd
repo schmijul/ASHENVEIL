@@ -1,6 +1,8 @@
 extends Node3D
 
 const BOAR_SCENE := preload("res://scenes/entities/boar.tscn")
+const TREE_MODEL_PATH := "res://assets/models/tree1.glb"
+const TREE_MODEL_BASE_SCALE := 0.38
 const FOREST_RADIUS := 58.0
 const TREE_COUNT := 130
 const BUSH_COUNT := 260
@@ -14,6 +16,8 @@ func _ready() -> void:
 	_spawn_boars()
 
 func _build_tree_layers() -> void:
+	var tree_scene_resource: Resource = load(TREE_MODEL_PATH)
+	var tree_scene: PackedScene = tree_scene_resource as PackedScene
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 4207
 	for i in range(TREE_COUNT):
@@ -23,11 +27,24 @@ func _build_tree_layers() -> void:
 		if abs(position.x - sin(position.z * 0.06) * 4.0) < 6.0 and position.z > -28.0 and position.z < 45.0:
 			continue
 
-		var tree := Node3D.new()
+		var tree: Node3D
+		if tree_scene != null:
+			var instance: Node = tree_scene.instantiate()
+			tree = instance as Node3D
+			if tree == null:
+				tree = Node3D.new()
+		else:
+			tree = Node3D.new()
 		tree.position = position
 		tree.rotation.y = rng.randf() * TAU
-		tree.scale = Vector3.ONE * rng.randf_range(0.9, 1.45)
+		if tree_scene != null:
+			tree.scale = Vector3.ONE * rng.randf_range(TREE_MODEL_BASE_SCALE * 0.9, TREE_MODEL_BASE_SCALE * 1.3)
+		else:
+			tree.scale = Vector3.ONE * rng.randf_range(0.9, 1.45)
 		add_child(tree)
+
+		if tree_scene != null:
+			continue
 
 		var trunk := MeshInstance3D.new()
 		var trunk_mesh := CylinderMesh.new()
