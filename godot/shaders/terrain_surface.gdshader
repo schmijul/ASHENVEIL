@@ -35,11 +35,14 @@ void fragment() {
 	float h = clamp((world_pos.y + 4.0) / 8.0, 0.0, 1.0);
 	float noise = noise2d(world_pos.xz * noise_scale);
 	float macro_noise = noise2d(world_pos.xz * noise_scale * 0.35);
+	float broad_noise = noise2d(world_pos.xz * 0.012);
+	float valley_mask = clamp(1.0 - h, 0.0, 1.0);
 
-	vec3 base = mix(moss_color.rgb, grass_color.rgb, h);
-	base = mix(base, soil_color.rgb, clamp((noise - 0.45) * 1.8, 0.0, 1.0));
-	base = mix(base, rock_color.rgb, slope);
-	base += (macro_noise - 0.5) * 0.05;
+	vec3 base = mix(moss_color.rgb, grass_color.rgb, clamp(h * 0.88 + broad_noise * 0.18, 0.0, 1.0));
+	base = mix(base, soil_color.rgb, clamp((noise - 0.40) * 1.55 + valley_mask * 0.14, 0.0, 1.0));
+	base = mix(base, rock_color.rgb, clamp(slope * 1.1, 0.0, 1.0));
+	base += (macro_noise - 0.5) * 0.045;
+	base *= mix(vec3(0.92, 0.95, 0.89), vec3(1.02, 1.0, 0.96), h);
 
 	ALBEDO = clamp(base, vec3(0.0), vec3(1.0));
 	ROUGHNESS = roughness_value;

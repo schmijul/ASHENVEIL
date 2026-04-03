@@ -1,5 +1,7 @@
 extends Node3D
 
+const CharacterVisualFactoryScript := preload("res://scripts/entities/character_visual_factory.gd")
+
 @export var npc_id := "maren"
 
 var _label: Label3D
@@ -19,54 +21,12 @@ func _build_visual() -> void:
 		_label = Label3D.new()
 		_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		_label.position = Vector3(0, 2.35, 0)
+		_label.visible = false
 		add_child(_label)
 
-	var model_root := _try_load_character_model()
-	if model_root != null:
-		add_child(model_root)
-		return
-
-	add_child(_build_fallback_body())
-
-func _try_load_character_model() -> Node3D:
-	var model: Dictionary = AshenveilDataStore.get_character_model(npc_id)
-	if model.is_empty():
-		return null
-
-	var raw_path := str(model.get("path", "")).strip_edges()
-	if raw_path.is_empty():
-		return null
-
-	var candidate_paths := _build_model_candidates(raw_path)
-	for candidate in candidate_paths:
-		if not ResourceLoader.exists(candidate):
-			continue
-		var packed := ResourceLoader.load(candidate) as PackedScene
-		if packed == null:
-			continue
-		var instance := packed.instantiate() as Node3D
-		if instance == null:
-			continue
-		instance.scale = Vector3.ONE * float(model.get("scale", 1.0))
-		instance.position.y = float(model.get("yOffset", 0.0))
-		instance.rotation.y = float(model.get("rotationY", 0.0))
-		return instance
-
-	return null
-
-func _build_model_candidates(raw_path: String) -> Array[String]:
-	if raw_path.begins_with("res://"):
-		return [raw_path]
-	if raw_path.begins_with("/models/"):
-		var suffix := raw_path.trim_prefix("/models/")
-		return [
-			"res://../legacy_web/public/models/characters/%s" % suffix,
-			"res://assets/models/%s" % suffix,
-		]
-	return [
-		"res://../legacy_web/public/models/characters/%s" % raw_path,
-		"res://assets/models/%s" % raw_path,
-	]
+	var factory := CharacterVisualFactoryScript.new()
+	var model_root: Node3D = factory.create_character_visual(npc_id)
+	add_child(model_root)
 
 func _build_fallback_body() -> Node3D:
 	var npc := AshenveilDataStore.get_npc(npc_id)

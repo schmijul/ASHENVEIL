@@ -7,7 +7,7 @@ const FOREST_RADIUS := 58.0
 const TREE_COUNT := 130
 const BUSH_COUNT := 260
 const ROCK_COUNT := 55
-const GRASS_COUNT := 3200
+const GRASS_COUNT := 1800
 const FLOWER_COUNT := 420
 const LOG_COUNT := 75
 const MUSHROOM_COUNT := 240
@@ -28,9 +28,9 @@ func _build_tree_layers() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 4207
 	for i in range(TREE_COUNT):
-		var angle := rng.randf() * TAU
-		var distance := sqrt(rng.randf()) * FOREST_RADIUS
-		var position := Vector3(cos(angle) * distance, 0.0, sin(angle) * distance - 8.0)
+		var angle: float = rng.randf() * TAU
+		var distance: float = sqrt(rng.randf()) * FOREST_RADIUS
+		var position: Vector3 = Vector3(cos(angle) * distance, 0.0, sin(angle) * distance - 8.0)
 		if abs(position.x - sin(position.z * 0.06) * 4.0) < 6.0 and position.z > -28.0 and position.z < 45.0:
 			continue
 
@@ -116,9 +116,9 @@ func _build_bush_layer() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 9931
 	for _i in range(BUSH_COUNT):
-		var angle := rng.randf() * TAU
-		var distance := sqrt(rng.randf()) * (FOREST_RADIUS + 10.0)
-		var pos := Vector3(cos(angle) * distance, 0.0, sin(angle) * distance - 8.0)
+		var angle: float = rng.randf() * TAU
+		var distance: float = sqrt(rng.randf()) * (FOREST_RADIUS + 10.0)
+		var pos: Vector3 = Vector3(cos(angle) * distance, 0.0, sin(angle) * distance - 8.0)
 		if abs(pos.x - sin(pos.z * 0.06) * 4.0) < 4.7 and pos.z > -30.0 and pos.z < 45.0:
 			continue
 		var bush := MeshInstance3D.new()
@@ -214,36 +214,35 @@ func _build_forest_floor() -> void:
 func _build_grass_layer() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 781
-	var quad := QuadMesh.new()
-	quad.size = Vector2(0.15, 0.75)
+	var tuft := _build_grass_tuft_mesh()
 	var material := StandardMaterial3D.new()
-	material.albedo_color = Color(0.33, 0.47, 0.24, 1.0)
+	material.albedo_color = Color(0.28, 0.42, 0.21, 1.0)
 	material.roughness = 1.0
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.use_colors = true
-	mm.mesh = quad
+	mm.mesh = tuft
 	mm.instance_count = GRASS_COUNT
 
 	for i in range(GRASS_COUNT):
-		var angle := rng.randf() * TAU
-		var distance := sqrt(rng.randf()) * (FOREST_RADIUS + 18.0)
-		var x := cos(angle) * distance
-		var z := sin(angle) * distance - 8.0
+		var angle: float = rng.randf() * TAU
+		var distance: float = sqrt(rng.randf()) * (FOREST_RADIUS + 18.0)
+		var x: float = cos(angle) * distance
+		var z: float = sin(angle) * distance - 8.0
 		if abs(x - sin(z * 0.06) * 4.0) < 4.0 and z > -30.0 and z < 45.0:
 			x += rng.randf_range(-5.0, 5.0)
 			z += rng.randf_range(-5.0, 5.0)
 		var t := Transform3D.IDENTITY
 		t = t.rotated(Vector3.UP, rng.randf() * TAU)
-		t = t.scaled(Vector3(rng.randf_range(0.75, 1.35), rng.randf_range(0.6, 1.6), 1.0))
+		t = t.scaled(Vector3(rng.randf_range(0.65, 1.15), rng.randf_range(0.7, 1.5), 0.9))
 		t.origin = Vector3(x, 0.35, z)
 		mm.set_instance_transform(i, t)
 		mm.set_instance_color(i, Color(
-			rng.randf_range(0.24, 0.41),
-			rng.randf_range(0.42, 0.62),
-			rng.randf_range(0.18, 0.31),
+			rng.randf_range(0.19, 0.36),
+			rng.randf_range(0.38, 0.57),
+			rng.randf_range(0.15, 0.27),
 			1.0
 		))
 
@@ -251,6 +250,46 @@ func _build_grass_layer() -> void:
 	instance.multimesh = mm
 	instance.material_override = material
 	add_child(instance)
+
+func _build_grass_tuft_mesh() -> ArrayMesh:
+	var mesh := ArrayMesh.new()
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var indices := PackedInt32Array()
+	var blade_width := 0.045
+	var blade_height := 0.78
+	var blade_angles := [0.0, PI * 0.33, PI * 0.66, PI * 1.02]
+
+	for blade_index in range(blade_angles.size()):
+		var angle: float = float(blade_angles[blade_index])
+		var forward: Vector3 = Vector3(cos(angle), 0.0, sin(angle))
+		var side: Vector3 = Vector3(-sin(angle), 0.0, cos(angle)) * blade_width
+		var bend: Vector3 = forward * 0.10
+		var base_index: int = vertices.size()
+
+		vertices.append((-side) + Vector3(0.0, 0.0, 0.0))
+		vertices.append(side + Vector3(0.0, 0.0, 0.0))
+		vertices.append((side * 0.35) + Vector3(0.0, blade_height, 0.0) + bend)
+		vertices.append((-side * 0.35) + Vector3(0.0, blade_height, 0.0) + bend)
+
+		for _i in range(4):
+			normals.append(forward)
+
+		uvs.append(Vector2(0.0, 1.0))
+		uvs.append(Vector2(1.0, 1.0))
+		uvs.append(Vector2(1.0, 0.0))
+		uvs.append(Vector2(0.0, 0.0))
+		indices.append_array([base_index, base_index + 1, base_index + 2, base_index, base_index + 2, base_index + 3])
+
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_INDEX] = indices
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
 
 func _build_flower_layer() -> void:
 	var rng := RandomNumberGenerator.new()

@@ -19,23 +19,27 @@ func _build_environment() -> void:
 	env.background_mode = Environment.BG_SKY
 	env.sky = _build_sky()
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_color = Color(0.82, 0.77, 0.68, 1.0)
-	env.ambient_light_energy = 1.35
+	env.ambient_light_color = Color(0.70, 0.68, 0.61, 1.0)
+	env.ambient_light_energy = 0.95
 	env.fog_enabled = true
-	env.fog_light_color = Color(0.79, 0.74, 0.67, 1.0)
-	env.fog_density = 0.011
+	env.fog_light_color = Color(0.84, 0.79, 0.71, 1.0)
+	env.fog_density = 0.0068
 	env.volumetric_fog_enabled = true
-	env.volumetric_fog_density = 0.09
+	env.volumetric_fog_density = 0.052
 	env.glow_enabled = true
-	env.glow_strength = 0.55
+	env.glow_strength = 0.34
+	env.adjustment_enabled = true
+	env.adjustment_brightness = 0.96
+	env.adjustment_contrast = 1.12
+	env.adjustment_saturation = 1.06
 	env.tonemap_mode = Environment.TONE_MAPPER_ACES
 	env.sdfgi_enabled = true
 	environment.environment = env
 	add_child(environment)
 
 	var sun := DirectionalLight3D.new()
-	sun.light_energy = 1.85
-	sun.light_color = Color(1.0, 0.85, 0.67, 1.0)
+	sun.light_energy = 1.55
+	sun.light_color = Color(1.0, 0.84, 0.64, 1.0)
 	sun.rotation_degrees = Vector3(-37, 26, 0)
 	sun.shadow_enabled = true
 	sun.shadow_bias = 0.02
@@ -43,8 +47,8 @@ func _build_environment() -> void:
 	add_child(sun)
 
 	var fill := DirectionalLight3D.new()
-	fill.light_energy = 0.22
-	fill.light_color = Color(0.55, 0.63, 0.71, 1.0)
+	fill.light_energy = 0.16
+	fill.light_color = Color(0.52, 0.61, 0.69, 1.0)
 	fill.rotation_degrees = Vector3(-22, -142, 0)
 	add_child(fill)
 
@@ -75,6 +79,13 @@ func _build_ground() -> void:
 	mesh_instance.mesh = _build_terrain_mesh()
 	var material := ShaderMaterial.new()
 	material.shader = TERRAIN_SHADER
+	material.set_shader_parameter("grass_color", Color(0.24, 0.38, 0.20, 1.0))
+	material.set_shader_parameter("moss_color", Color(0.19, 0.28, 0.16, 1.0))
+	material.set_shader_parameter("soil_color", Color(0.39, 0.29, 0.19, 1.0))
+	material.set_shader_parameter("rock_color", Color(0.35, 0.35, 0.33, 1.0))
+	material.set_shader_parameter("roughness_value", 0.96)
+	material.set_shader_parameter("noise_scale", 0.048)
+	material.set_shader_parameter("slope_sharpness", 2.5)
 	mesh_instance.material_override = material
 	ground_body.add_child(mesh_instance)
 
