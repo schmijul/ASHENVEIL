@@ -2,6 +2,7 @@ extends Node3D
 
 const ForestScene := preload("res://scenes/world/forest.tscn")
 const VillageScene := preload("res://scenes/world/village.tscn")
+const TERRAIN_SHADER := preload("res://shaders/terrain_surface.gdshader")
 const TERRAIN_SIZE := 170.0
 const TERRAIN_RESOLUTION := 96
 const TERRAIN_HEIGHT := 3.8
@@ -71,10 +72,8 @@ func _build_ground() -> void:
 
 	var mesh_instance := MeshInstance3D.new()
 	mesh_instance.mesh = _build_terrain_mesh()
-	var material := StandardMaterial3D.new()
-	material.vertex_color_use_as_albedo = true
-	material.roughness = 0.96
-	material.metallic = 0.0
+	var material := ShaderMaterial.new()
+	material.shader = TERRAIN_SHADER
 	mesh_instance.material_override = material
 	ground_body.add_child(mesh_instance)
 

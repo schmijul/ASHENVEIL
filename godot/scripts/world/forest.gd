@@ -7,12 +7,16 @@ const FOREST_RADIUS := 58.0
 const TREE_COUNT := 130
 const BUSH_COUNT := 260
 const ROCK_COUNT := 55
+const GRASS_COUNT := 3200
+const FLOWER_COUNT := 420
 
 func _ready() -> void:
 	_build_tree_layers()
 	_build_bush_layer()
 	_build_rocks()
 	_build_forest_floor()
+	_build_grass_layer()
+	_build_flower_layer()
 	_spawn_boars()
 
 func _build_tree_layers() -> void:
@@ -173,6 +177,85 @@ func _build_forest_floor() -> void:
 		patch_material.roughness = 1.0
 		patch.material_override = patch_material
 		add_child(patch)
+
+func _build_grass_layer() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 781
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.15, 0.75)
+	var material := StandardMaterial3D.new()
+	material.albedo_color = Color(0.33, 0.47, 0.24, 1.0)
+	material.roughness = 1.0
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	mm.mesh = quad
+	mm.instance_count = GRASS_COUNT
+
+	for i in range(GRASS_COUNT):
+		var angle := rng.randf() * TAU
+		var distance := sqrt(rng.randf()) * (FOREST_RADIUS + 18.0)
+		var x := cos(angle) * distance
+		var z := sin(angle) * distance - 8.0
+		if abs(x - sin(z * 0.06) * 4.0) < 4.0 and z > -30.0 and z < 45.0:
+			x += rng.randf_range(-5.0, 5.0)
+			z += rng.randf_range(-5.0, 5.0)
+		var t := Transform3D.IDENTITY
+		t = t.rotated(Vector3.UP, rng.randf() * TAU)
+		t = t.scaled(Vector3(rng.randf_range(0.75, 1.35), rng.randf_range(0.6, 1.6), 1.0))
+		t.origin = Vector3(x, 0.35, z)
+		mm.set_instance_transform(i, t)
+		mm.set_instance_color(i, Color(
+			rng.randf_range(0.24, 0.41),
+			rng.randf_range(0.42, 0.62),
+			rng.randf_range(0.18, 0.31),
+			1.0
+		))
+
+	var instance := MultiMeshInstance3D.new()
+	instance.multimesh = mm
+	instance.material_override = material
+	add_child(instance)
+
+func _build_flower_layer() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 801
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.1, 0.1)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.94, 0.89, 0.70, 1.0)
+	mat.emission_enabled = true
+	mat.emission = Color(0.32, 0.28, 0.18, 1.0)
+	mat.emission_energy_multiplier = 0.2
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+	mm.mesh = quad
+	mm.instance_count = FLOWER_COUNT
+
+	for i in range(FLOWER_COUNT):
+		var x := rng.randf_range(-34.0, 34.0)
+		var z := rng.randf_range(-40.0, 56.0)
+		var t := Transform3D.IDENTITY
+		t = t.rotated(Vector3.UP, rng.randf() * TAU)
+		t = t.scaled(Vector3.ONE * rng.randf_range(0.6, 1.5))
+		t.origin = Vector3(x, 0.08, z)
+		mm.set_instance_transform(i, t)
+		mm.set_instance_color(i, Color(
+			rng.randf_range(0.85, 1.0),
+			rng.randf_range(0.70, 0.94),
+			rng.randf_range(0.38, 0.72),
+			1.0
+		))
+
+	var instance := MultiMeshInstance3D.new()
+	instance.multimesh = mm
+	instance.material_override = mat
+	add_child(instance)
 
 func _spawn_boars() -> void:
 	for enemy_id in ["boar", "scarred_boar"]:

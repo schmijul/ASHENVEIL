@@ -14,6 +14,7 @@ func _ready() -> void:
 	_build_paths()
 	_build_houses()
 	_build_props()
+	_build_ground_details()
 	_spawn_npcs()
 
 func _build_center_square() -> void:
@@ -129,6 +130,49 @@ func _build_props() -> void:
 		lantern.omni_range = 7.0
 		lantern.position = lantern_pole.position + Vector3(0, 0.95, 0)
 		add_child(lantern)
+
+func _build_ground_details() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 404
+
+	for _i in range(120):
+		var pebble := MeshInstance3D.new()
+		var mesh := SphereMesh.new()
+		mesh.radius = rng.randf_range(0.04, 0.11)
+		mesh.height = mesh.radius * rng.randf_range(0.7, 1.3)
+		pebble.mesh = mesh
+		pebble.position = Vector3(rng.randf_range(-15.0, 15.0), 0.05, rng.randf_range(14.0, 46.0))
+		pebble.scale = Vector3(rng.randf_range(0.8, 1.5), rng.randf_range(0.6, 1.1), rng.randf_range(0.8, 1.5))
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color(
+			rng.randf_range(0.34, 0.43),
+			rng.randf_range(0.30, 0.36),
+			rng.randf_range(0.25, 0.31),
+			1.0
+		)
+		mat.roughness = 1.0
+		pebble.material_override = mat
+		add_child(pebble)
+
+	for _i in range(35):
+		var hay := MeshInstance3D.new()
+		var mesh := CylinderMesh.new()
+		mesh.top_radius = rng.randf_range(0.18, 0.34)
+		mesh.bottom_radius = mesh.top_radius
+		mesh.height = rng.randf_range(0.16, 0.34)
+		hay.mesh = mesh
+		hay.position = Vector3(rng.randf_range(-13.0, 13.0), 0.12, rng.randf_range(16.0, 45.0))
+		hay.rotation.y = rng.randf() * TAU
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color(
+			rng.randf_range(0.70, 0.83),
+			rng.randf_range(0.59, 0.71),
+			rng.randf_range(0.30, 0.42),
+			1.0
+		)
+		mat.roughness = 0.96
+		hay.material_override = mat
+		add_child(hay)
 
 func _spawn_npcs() -> void:
 	var location_positions := {
