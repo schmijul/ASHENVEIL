@@ -4,6 +4,13 @@ const ForestScene := preload("res://scenes/world/forest.tscn")
 const VillageScene := preload("res://scenes/world/village.tscn")
 const TERRAIN_SHADER := preload("res://shaders/terrain_surface.gdshader")
 const SKY_HDR_PATH := "res://assets/hdri/forest_slope_2k.hdr"
+const GROUND_DIFFUSE_PATH := "res://assets/textures/ground/forest_ground_04/diffuse.jpg"
+const GROUND_ROUGHNESS_PATH := "res://assets/textures/ground/forest_ground_04/roughness.jpg"
+const GROUND_NORMAL_PATH := "res://assets/textures/ground/forest_ground_04/normal_gl.jpg"
+const LEAVES_DIFFUSE_PATH := "res://assets/textures/ground/leaves_forest_ground/diffuse.jpg"
+const LEAVES_ROUGHNESS_PATH := "res://assets/textures/ground/leaves_forest_ground/roughness.jpg"
+const DIRT_DIFFUSE_PATH := "res://assets/textures/ground/dirt_aerial_03/diffuse.jpg"
+const DIRT_ROUGHNESS_PATH := "res://assets/textures/ground/dirt_aerial_03/roughness.jpg"
 const TERRAIN_SIZE := 170.0
 const TERRAIN_RESOLUTION := 96
 const TERRAIN_HEIGHT := 3.8
@@ -104,6 +111,14 @@ func _build_ground() -> void:
 	material.set_shader_parameter("roughness_value", 0.96)
 	material.set_shader_parameter("noise_scale", 0.048)
 	material.set_shader_parameter("slope_sharpness", 2.5)
+	material.set_shader_parameter("tex_scale", 0.065)
+	material.set_shader_parameter("tex_ground_diff", _load_texture_from_image(GROUND_DIFFUSE_PATH))
+	material.set_shader_parameter("tex_ground_rough", _load_texture_from_image(GROUND_ROUGHNESS_PATH))
+	material.set_shader_parameter("tex_ground_norm", _load_texture_from_image(GROUND_NORMAL_PATH))
+	material.set_shader_parameter("tex_leaves_diff", _load_texture_from_image(LEAVES_DIFFUSE_PATH))
+	material.set_shader_parameter("tex_leaves_rough", _load_texture_from_image(LEAVES_ROUGHNESS_PATH))
+	material.set_shader_parameter("tex_dirt_diff", _load_texture_from_image(DIRT_DIFFUSE_PATH))
+	material.set_shader_parameter("tex_dirt_rough", _load_texture_from_image(DIRT_ROUGHNESS_PATH))
 	mesh_instance.material_override = material
 	ground_body.add_child(mesh_instance)
 

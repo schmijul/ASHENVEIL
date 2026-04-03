@@ -8,6 +8,14 @@ uniform vec4 rock_color : source_color = vec4(0.37, 0.36, 0.34, 1.0);
 uniform float roughness_value : hint_range(0.0, 1.0) = 0.94;
 uniform float noise_scale = 0.06;
 uniform float slope_sharpness = 2.2;
+uniform float tex_scale = 0.075;
+uniform sampler2D tex_ground_diff;
+uniform sampler2D tex_ground_rough;
+uniform sampler2D tex_ground_norm;
+uniform sampler2D tex_leaves_diff;
+uniform sampler2D tex_leaves_rough;
+uniform sampler2D tex_dirt_diff;
+uniform sampler2D tex_dirt_rough;
 varying vec3 world_pos;
 
 float hash12(vec2 p) {
@@ -37,14 +45,29 @@ void fragment() {
 	float macro_noise = noise2d(world_pos.xz * noise_scale * 0.35);
 	float broad_noise = noise2d(world_pos.xz * 0.012);
 	float valley_mask = clamp(1.0 - h, 0.0, 1.0);
+	float path_center = sin(world_pos.z * 0.06) * 4.0;
+	float path_mask = clamp(1.0 - abs(world_pos.x - path_center) / 5.5, 0.0, 1.0);
+	vec2 uv = world_pos.xz * tex_scale;
+
+	vec3 ground_diff = texture(tex_ground_diff, uv).rgb;
+	float ground_rough = texture(tex_ground_rough, uv).r;
+	vec3 ground_nrm = texture(tex_ground_norm, uv).rgb * 2.0 - 1.0;
+	vec3 leaves_diff = texture(tex_leaves_diff, uv * 0.8 + vec2(0.15, -0.22)).rgb;
+	float leaves_rough = texture(tex_leaves_rough, uv * 0.8 + vec2(0.15, -0.22)).r;
+	vec3 dirt_diff = texture(tex_dirt_diff, uv * 0.9).rgb;
+	float dirt_rough = texture(tex_dirt_rough, uv * 0.9).r;
 
 	vec3 base = mix(moss_color.rgb, grass_color.rgb, clamp(h * 0.88 + broad_noise * 0.18, 0.0, 1.0));
 	base = mix(base, soil_color.rgb, clamp((noise - 0.40) * 1.55 + valley_mask * 0.14, 0.0, 1.0));
 	base = mix(base, rock_color.rgb, clamp(slope * 1.1, 0.0, 1.0));
 	base += (macro_noise - 0.5) * 0.045;
 	base *= mix(vec3(0.92, 0.95, 0.89), vec3(1.02, 1.0, 0.96), h);
+	base = mix(base, ground_diff, 0.65);
+	base = mix(base, leaves_diff, clamp((macro_noise - 0.35) * 1.2, 0.0, 0.5));
+	base = mix(base, dirt_diff, path_mask * 0.85);
 
 	ALBEDO = clamp(base, vec3(0.0), vec3(1.0));
-	ROUGHNESS = roughness_value;
+	ROUGHNESS = clamp(mix(mix(ground_rough, leaves_rough, 0.25), dirt_rough, path_mask) * roughness_value, 0.0, 1.0);
 	METALLIC = 0.0;
+	NORMAL = normalize(mix(vec3(0.0, 0.0, 1.0), ground_nrm, 0.45));
 }
