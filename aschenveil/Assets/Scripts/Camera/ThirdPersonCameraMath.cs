@@ -38,6 +38,7 @@ namespace Ashenveil.Camera
         public static float GetAdjustedFollowDistance(float currentDistance, float scrollDelta, float adjustmentSpeed, float minDistance, float maxDistance)
         {
             float normalizedScrollDelta = Mathf.Abs(scrollDelta) > 1f ? scrollDelta / 120f : scrollDelta;
+            normalizedScrollDelta = Mathf.Clamp(normalizedScrollDelta, -1f, 1f);
             float adjustedDistance = currentDistance - (normalizedScrollDelta * adjustmentSpeed);
             return Mathf.Clamp(adjustedDistance, minDistance, maxDistance);
         }

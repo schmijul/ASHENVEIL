@@ -34,7 +34,7 @@ namespace Ashenveil.Tests.EditMode
         [Test]
         public void GetAdjustedFollowDistance_ClampsWithinConfiguredBounds()
         {
-            float distance = ThirdPersonCameraMath.GetAdjustedFollowDistance(2.5f, 2f, 1.5f, 1.5f, 5f);
+            float distance = ThirdPersonCameraMath.GetAdjustedFollowDistance(2.5f, 1200f, 1.5f, 1.5f, 5f);
 
             Assert.That(distance, Is.EqualTo(1.5f).Within(0.0001f));
         }
