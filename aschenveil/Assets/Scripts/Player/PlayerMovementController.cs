@@ -19,6 +19,8 @@ namespace Ashenveil.Player
         private Vector2 _moveInput;
         private bool _jumpQueued;
         private float _verticalVelocity;
+        private bool _movementLocked;
+        private float _movementSpeedMultiplier = 1f;
 
         private void Awake()
         {
@@ -59,11 +61,17 @@ namespace Ashenveil.Player
 
             Vector3 cameraForward = _cameraTransform != null ? _cameraTransform.forward : transform.forward;
             Vector3 cameraRight = _cameraTransform != null ? _cameraTransform.right : transform.right;
-            Vector3 moveDirection = PlayerMovementMath.GetCameraRelativeMovement(_moveInput, cameraForward, cameraRight);
-            float moveMagnitude = Mathf.Clamp01(_moveInput.magnitude);
-            bool sprinting = _staminaSystem != null && _staminaSystem.CanSprint && moveMagnitude > 0.01f && _inputHandler != null && _inputHandler.IsSprinting;
+            Vector2 movementInput = _movementLocked ? Vector2.zero : _moveInput;
+            Vector3 moveDirection = PlayerMovementMath.GetCameraRelativeMovement(movementInput, cameraForward, cameraRight);
+            float moveMagnitude = Mathf.Clamp01(movementInput.magnitude);
+            bool sprinting = !_movementLocked && _staminaSystem != null && _staminaSystem.CanSprint && moveMagnitude > 0.01f && _inputHandler != null && _inputHandler.IsSprinting;
 
-            float speed = PlayerMovementMath.GetMoveSpeed(sprinting, sprinting, _playerStats.WalkSpeed, _playerStats.SprintSpeed, _moveInput);
+            float speed = PlayerMovementMath.GetMoveSpeed(sprinting, _staminaSystem == null || _staminaSystem.CanSprint, _playerStats.WalkSpeed, _playerStats.SprintSpeed, movementInput) * _movementSpeedMultiplier;
+            if (_movementLocked)
+            {
+                speed = 0f;
+            }
+
             if (sprinting && _staminaSystem != null)
             {
                 if (!_staminaSystem.TryConsumeSprint(deltaTime))
@@ -72,7 +80,7 @@ namespace Ashenveil.Player
                 }
             }
 
-            if (_jumpQueued && grounded)
+            if (_jumpQueued && grounded && !_movementLocked)
             {
                 _verticalVelocity = PlayerMovementMath.CalculateJumpVelocity(_playerStats.Gravity, _playerStats.JumpHeight);
             }
@@ -152,6 +160,24 @@ namespace Ashenveil.Player
         private void HandleJumpPressed()
         {
             _jumpQueued = true;
+        }
+
+        public bool IsMovementLocked => _movementLocked;
+
+        public float MovementSpeedMultiplier => _movementSpeedMultiplier;
+
+        public void SetMovementLocked(bool locked)
+        {
+            _movementLocked = locked;
+            if (locked)
+            {
+                _jumpQueued = false;
+            }
+        }
+
+        public void SetMovementSpeedMultiplier(float multiplier)
+        {
+            _movementSpeedMultiplier = Mathf.Clamp01(multiplier);
         }
     }
 }
