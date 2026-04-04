@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 17f9d82ff3e77b443becf98701fa9650
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 159469
+  packageName: Fantasy Garment for UMA
+  packageVersion: 1.0
+  assetPath: Assets/FantasyGarment/UMATools/MeshHideOrganization.cs
+  uploadId: 343536

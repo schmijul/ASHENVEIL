@@ -24,6 +24,10 @@ namespace Ashenveil.Player
         [SerializeField] private string _playerActionMapName = "Player";
         [SerializeField] private string _moveActionName = "Move";
         [SerializeField] private string _lookActionName = "Look";
+        [SerializeField] private string _lightAttackActionName = "LightAttack";
+        [SerializeField] private string _heavyAttackActionName = "HeavyAttack";
+        [SerializeField] private string _blockActionName = "Block";
+        [SerializeField] private string _dodgeActionName = "Dodge";
         [SerializeField] private string _sprintActionName = "Sprint";
         [SerializeField] private string _jumpActionName = "Jump";
         [SerializeField] private string _interactActionName = "Interact";
@@ -34,6 +38,10 @@ namespace Ashenveil.Player
 
         private InputAction _moveAction;
         private InputAction _lookAction;
+        private InputAction _lightAttackAction;
+        private InputAction _heavyAttackAction;
+        private InputAction _blockAction;
+        private InputAction _dodgeAction;
         private InputAction _zoomAction;
         private InputAction _sprintAction;
         private InputAction _jumpAction;
@@ -44,6 +52,11 @@ namespace Ashenveil.Player
         public event Action<Vector2> LookInputChanged;
         public event Action<float> ZoomInputChanged;
         public event Action<bool> SprintChanged;
+        public event Action LightAttackPressed;
+        public event Action HeavyAttackPressed;
+        public event Action DodgePressed;
+        public event Action<bool> BlockChanged;
+        public event Action<bool> HeavyAttackHeldChanged;
         public event Action JumpPressed;
         public event Action InteractPressed;
 
@@ -51,6 +64,8 @@ namespace Ashenveil.Player
         public Vector2 LookInput { get; private set; }
         public float ZoomInput { get; private set; }
         public bool IsSprinting { get; private set; }
+        public bool IsBlocking { get; private set; }
+        public bool IsHeavyAttackHeld { get; private set; }
 
         private void Awake()
         {
@@ -118,19 +133,29 @@ namespace Ashenveil.Player
 
             _moveAction = RequireAction(playerMap, _moveActionName);
             _lookAction = RequireAction(playerMap, _lookActionName);
+            _lightAttackAction = ResolveAction(playerMap, _lightAttackActionName, "Attack");
+            _heavyAttackAction = RequireAction(playerMap, _heavyAttackActionName);
+            _blockAction = RequireAction(playerMap, _blockActionName);
+            _dodgeAction = RequireAction(playerMap, _dodgeActionName);
             _sprintAction = RequireAction(playerMap, _sprintActionName);
             _jumpAction = RequireAction(playerMap, _jumpActionName);
             _interactAction = playerMap.FindAction(_interactActionName, false);
             InputActionMap cameraMap = _inputActions.FindActionMap(_cameraActionMapName, false);
             _zoomAction = cameraMap?.FindAction(_zoomActionName, false);
 
-            if (_moveAction == null || _lookAction == null || _sprintAction == null || _jumpAction == null)
+            if (_moveAction == null || _lookAction == null || _lightAttackAction == null || _heavyAttackAction == null || _blockAction == null || _dodgeAction == null || _sprintAction == null || _jumpAction == null)
             {
                 Debug.LogError($"{nameof(PlayerInputHandler)} on {name} is missing one or more required player actions.");
                 enabled = false;
                 return;
             }
 
+            _lightAttackAction.performed += HandleLightAttackPerformed;
+            _heavyAttackAction.performed += HandleHeavyAttackPerformed;
+            _heavyAttackAction.canceled += HandleHeavyAttackCanceled;
+            _blockAction.performed += HandleBlockPerformed;
+            _blockAction.canceled += HandleBlockCanceled;
+            _dodgeAction.performed += HandleDodgePerformed;
             _jumpAction.performed += HandleJumpPerformed;
             if (_interactAction != null)
             {
@@ -153,6 +178,28 @@ namespace Ashenveil.Player
                 _jumpAction.performed -= HandleJumpPerformed;
             }
 
+            if (_lightAttackAction != null)
+            {
+                _lightAttackAction.performed -= HandleLightAttackPerformed;
+            }
+
+            if (_heavyAttackAction != null)
+            {
+                _heavyAttackAction.performed -= HandleHeavyAttackPerformed;
+                _heavyAttackAction.canceled -= HandleHeavyAttackCanceled;
+            }
+
+            if (_blockAction != null)
+            {
+                _blockAction.performed -= HandleBlockPerformed;
+                _blockAction.canceled -= HandleBlockCanceled;
+            }
+
+            if (_dodgeAction != null)
+            {
+                _dodgeAction.performed -= HandleDodgePerformed;
+            }
+
             if (_interactAction != null)
             {
                 _interactAction.performed -= HandleInteractPerformed;
@@ -163,6 +210,8 @@ namespace Ashenveil.Player
                 _inputActions.Disable();
             }
 
+            IsBlocking = false;
+            IsHeavyAttackHeld = false;
             _isBound = false;
         }
 
@@ -210,6 +259,60 @@ namespace Ashenveil.Player
             }
         }
 
+        private void HandleLightAttackPerformed(InputAction.CallbackContext context)
+        {
+            LightAttackPressed?.Invoke();
+        }
+
+        private void HandleHeavyAttackPerformed(InputAction.CallbackContext context)
+        {
+            if (!IsHeavyAttackHeld)
+            {
+                IsHeavyAttackHeld = true;
+                HeavyAttackHeldChanged?.Invoke(true);
+            }
+
+            HeavyAttackPressed?.Invoke();
+        }
+
+        private void HandleHeavyAttackCanceled(InputAction.CallbackContext context)
+        {
+            if (!IsHeavyAttackHeld)
+            {
+                return;
+            }
+
+            IsHeavyAttackHeld = false;
+            HeavyAttackHeldChanged?.Invoke(false);
+        }
+
+        private void HandleBlockPerformed(InputAction.CallbackContext context)
+        {
+            if (IsBlocking)
+            {
+                return;
+            }
+
+            IsBlocking = true;
+            BlockChanged?.Invoke(true);
+        }
+
+        private void HandleBlockCanceled(InputAction.CallbackContext context)
+        {
+            if (!IsBlocking)
+            {
+                return;
+            }
+
+            IsBlocking = false;
+            BlockChanged?.Invoke(false);
+        }
+
+        private void HandleDodgePerformed(InputAction.CallbackContext context)
+        {
+            DodgePressed?.Invoke();
+        }
+
         private void HandleJumpPerformed(InputAction.CallbackContext context)
         {
             JumpPressed?.Invoke();
@@ -229,6 +332,27 @@ namespace Ashenveil.Player
             }
 
             return action;
+        }
+
+        private static InputAction ResolveAction(InputActionMap map, string actionName, string fallbackActionName)
+        {
+            InputAction action = map.FindAction(actionName, false);
+            if (action != null)
+            {
+                return action;
+            }
+
+            if (!string.IsNullOrEmpty(fallbackActionName))
+            {
+                action = map.FindAction(fallbackActionName, false);
+                if (action != null)
+                {
+                    return action;
+                }
+            }
+
+            Debug.LogError($"Required action '{actionName}' was not found in map '{map.name}'.");
+            return null;
         }
     }
 }
