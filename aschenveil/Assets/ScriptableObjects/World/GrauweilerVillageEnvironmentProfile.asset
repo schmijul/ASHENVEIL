@@ -1,0 +1,50 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c884330489b1be816c107483ee563ef1, type: 3}
+  m_Name: GrauweilerVillageEnvironmentProfile
+  m_EditorClassIdentifier: Ashenveil.Runtime::Ashenveil.World.VillageEnvironmentProfile
+  _villageCenter: {x: 340, y: 0, z: 150}
+  _villageFootprint: {x: 150, y: 118}
+  _centralSquareSize: {x: 30, y: 30}
+  _wallSegmentLength: 7.5
+  _gateWidth: 18
+  _terrainBlendDistance: 18
+  _seed: 2404
+  _elderHousePrefab: {fileID: 100048, guid: 70b1cc9351b9b644f8490dc82ba9ec50, type: 3}
+  _traderShopPrefab: {fileID: 100034, guid: 1134317543a4d0949af5a6b78ad8e9c7, type: 3}
+  _blacksmithPrefab: {fileID: 1347347245585888, guid: a80b83884ffb26f41bc6c3343143484a,
+    type: 3}
+  _healerHutPrefab: {fileID: 1198742108763824, guid: 47d3dd0e10f4c214292987a17e0c2c0f,
+    type: 3}
+  _tavernPrefab: {fileID: 100034, guid: 1134317543a4d0949af5a6b78ad8e9c7, type: 3}
+  _residencePrefabs:
+  - {fileID: 100008, guid: 3c8ce989a89bfce4da004b17f42d7298, type: 3}
+  - {fileID: 100010, guid: edc187f9f9ba43449800751ee6d59cec, type: 3}
+  - {fileID: 100014, guid: ad3f867a742ace24b9e09aa4c6cfe7f0, type: 3}
+  - {fileID: 1198742108763824, guid: 47d3dd0e10f4c214292987a17e0c2c0f, type: 3}
+  - {fileID: 100008, guid: 3c8ce989a89bfce4da004b17f42d7298, type: 3}
+  - {fileID: 100010, guid: edc187f9f9ba43449800751ee6d59cec, type: 3}
+  - {fileID: 100014, guid: ad3f867a742ace24b9e09aa4c6cfe7f0, type: 3}
+  _storageBarnPrefab: {fileID: 100016, guid: 0b6b9334267df6640933e6446a286d80, type: 3}
+  _watchTowerPrefab: {fileID: 100004, guid: 43b1e32e7fce60a4bb13ea61ae8e33f7, type: 3}
+  _stablePrefab: {fileID: 100012, guid: 15a4be37a8517f94abaf3ad28701434e, type: 3}
+  _wallPanelPrefab: {fileID: 100000, guid: 9c17d66b88dfce54d99d6710ec954c13, type: 3}
+  _wallCornerPrefab: {fileID: 100000, guid: 54c5a00fc75fc854ca53900fe513f638, type: 3}
+  _gatePrefab: {fileID: 100000, guid: 18943e248bf020344bc794f906887d5c, type: 3}
+  _fencePrefab: {fileID: 100000, guid: 603ea43a3fd07dd4791e66d65ffb7eb0, type: 3}
+  _pathPrefab: {fileID: 100016, guid: f6a84f9400019460e81fb3b752b1fe05, type: 3}
+  _ambientProps:
+  - {fileID: 100000, guid: a5c7299f41b189149aaf8fb6f10a66f0, type: 3}
+  - {fileID: 100000, guid: 6e2eab48a2a561b4fa3c068ad21b25fe, type: 3}
+  - {fileID: 100002, guid: 0d998acdcb880824e92697c2f3ee2147, type: 3}
+  - {fileID: 100000, guid: 3ba18024abdc5834ebb6ca252e273790, type: 3}
+  - {fileID: 100012, guid: f632ee341faffa64ebfa4e2c74d6e422, type: 3}
