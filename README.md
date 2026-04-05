@@ -27,15 +27,11 @@ cd Ashenveil
 ```
 Open in Unity Hub → Add project → Select folder → Open with Unity 6.3 LTS (URP).
 
-### 2. Import Assets
-See `docs/STARTPROMPT.md` for the full asset list and import instructions.
-
 ## Project Structure
 ```
 docs/
 ├── GDD.md                   # Game Design Document
-├── BUILD_LOG.md             # Build progress tracker
-└── STARTPROMPT.md           # Local development notes
+└── BUILD_LOG.md             # Build progress tracker
 Assets/
 ├── Scripts/                 # All C# game code
 ├── ScriptableObjects/       # Data definitions
