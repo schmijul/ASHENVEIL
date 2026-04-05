@@ -13,7 +13,6 @@ A playable 30-45 minute demo set in the village of Grauweiler: hunt wildlife, tr
 
 ## Tech Stack
 - **Engine:** Unity 6.3 LTS (URP)
-- **AI Development:** Codex CLI with subagent orchestration
 - **Art:** PBR assets from Unity Asset Store + free packs
 
 ## Asset Notes
@@ -31,20 +30,12 @@ Open in Unity Hub → Add project → Select folder → Open with Unity 6.3 LTS 
 ### 2. Import Assets
 See `docs/STARTPROMPT.md` for the full asset list and import instructions.
 
-### 3. Start Codex Orchestrator
-```bash
-codex --full-auto --approval-mode on-request
-```
-Then paste the orchestrator prompt from `docs/STARTPROMPT.md`.
-
 ## Project Structure
 ```
-AGENTS.md                    # Codex agent instructions
-.agents/skills/              # Codex skills (orchestrator, unity-csharp)
 docs/
 ├── GDD.md                   # Game Design Document
 ├── BUILD_LOG.md             # Build progress tracker
-└── STARTPROMPT.md           # Codex CLI launch instructions
+└── STARTPROMPT.md           # Local development notes
 Assets/
 ├── Scripts/                 # All C# game code
 ├── ScriptableObjects/       # Data definitions
@@ -54,7 +45,7 @@ Assets/
 ```
 
 ## Build Order
-See `AGENTS.md` for the 14-system dependency chain. Each system is built on a feature branch, tested, and merged sequentially.
+The project is developed system by system on feature branches and integrated into `main` after validation.
 
 ## License
 This project is a personal experiment. Assets from the Unity Asset Store are subject to their respective licenses.
