@@ -1,6 +1,6 @@
 # Ashenveil — 3D Action RPG Demo
 
-An open-world action RPG demo built as a stress test for AI-assisted (agentic) game development.
+An open-world action RPG demo built in Unity 6.3 LTS (URP).
 
 ## What is this?
 A playable 30-45 minute demo set in the village of Grauweiler: hunt wildlife, trade with NPCs, discover Aether magic, and survive when the village is destroyed.
