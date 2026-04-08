@@ -134,6 +134,7 @@ namespace Ashenveil.Player
 
             _characterController.height = _playerStats.CharacterHeight;
             _characterController.radius = _playerStats.CharacterRadius;
+            _characterController.center = new Vector3(0f, _playerStats.CharacterHeight * 0.5f, 0f);
             _characterController.slopeLimit = _playerStats.SlopeLimit;
             _characterController.stepOffset = _playerStats.StepOffset;
         }

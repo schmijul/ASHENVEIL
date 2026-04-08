@@ -12,8 +12,8 @@ namespace Ashenveil.Player
         [Header("Movement")]
         [SerializeField, Min(0f)] private float _walkSpeed = 3f;
         [SerializeField, Min(0f)] private float _sprintSpeed = 6f;
-        [SerializeField, Min(0f)] private float _jumpHeight = 1.5f;
-        [SerializeField] private float _gravity = -19.62f;
+        [SerializeField, Min(0f)] private float _jumpHeight = 2.0f;
+        [SerializeField] private float _gravity = -15f;
         [SerializeField, Min(0.01f)] private float _characterHeight = 1.8f;
         [SerializeField, Min(0.01f)] private float _characterRadius = 0.3f;
         [SerializeField, Min(0f)] private float _slopeLimit = 45f;

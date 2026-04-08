@@ -20,16 +20,16 @@ namespace Ashenveil.World
         [SerializeField, Min(0f)] private float _detailDensity = 0.8f;
         [SerializeField, Min(0f)] private float _detailDistance = 80f;
         [SerializeField, Min(0)] private int _seed = 1337;
-        [SerializeField, Min(1)] private int _treeCount = 72;
-        [SerializeField, Min(0)] private int _rockCount = 18;
+        [SerializeField, Min(1)] private int _treeCount = 8000;
+        [SerializeField, Min(0)] private int _rockCount = 200;
         [SerializeField, Min(0f)] private float _treeRadius = 210f;
         [SerializeField, Min(0f)] private float _rockRadius = 220f;
-        [SerializeField, Min(0f)] private float _minTreeScale = 0.8f;
-        [SerializeField, Min(0f)] private float _maxTreeScale = 1.35f;
-        [SerializeField, Min(0f)] private float _minRockScale = 0.9f;
-        [SerializeField, Min(0f)] private float _maxRockScale = 1.6f;
-        [SerializeField, Min(0)] private int _foliageCount = 120;
-        [SerializeField, Min(0f)] private float _foliageRadius = 235f;
+        [SerializeField, Min(0f)] private float _minTreeScale = 1.5f;
+        [SerializeField, Min(0f)] private float _maxTreeScale = 3.0f;
+        [SerializeField, Min(0f)] private float _minRockScale = 0.7f;
+        [SerializeField, Min(0f)] private float _maxRockScale = 1.8f;
+        [SerializeField, Min(0)] private int _foliageCount = 5000;
+        [SerializeField, Min(0f)] private float _foliageRadius = 220f;
         [SerializeField, Min(0f)] private float _minFoliageScale = 0.65f;
         [SerializeField, Min(0f)] private float _maxFoliageScale = 1.1f;
 

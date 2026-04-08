@@ -140,44 +140,160 @@ namespace Ashenveil.World
             ClearChildren(_contentRoot);
 
             Vector3 terrainCenter = transform.position + (_terrainProfile.TerrainSize * 0.5f);
-            List<ForestPlacementPlanner.PlacementSample> treePlacements = ForestPlacementPlanner.GenerateClusters(
-                6,
-                Mathf.Max(1, _terrainProfile.TreeCount / 6),
+            Vector3 pathCenter = GetPathCenter(terrainCenter);
+
+            // Dense tree walls along each path segment — trees within arm's reach
+            List<ForestPlacementPlanner.PlacementSample> allTreePlacements = new List<ForestPlacementPlanner.PlacementSample>();
+            if (_pathWaypoints != null && _pathWaypoints.Length >= 2)
+            {
+                for (int seg = 0; seg < _pathWaypoints.Length - 1; seg++)
+                {
+                    Vector3 segCenter = (_pathWaypoints[seg] + _pathWaypoints[seg + 1]) * 0.5f;
+                    float segLength = Vector3.Distance(_pathWaypoints[seg], _pathWaypoints[seg + 1]);
+                    float segRadius = Mathf.Max(segLength * 0.6f, 8f);
+
+                    allTreePlacements.AddRange(ForestPlacementPlanner.GenerateClusters(
+                        20,
+                        40,
+                        segCenter,
+                        segRadius,
+                        5f,
+                        _terrainProfile.Seed + seg * 131,
+                        _terrainProfile.MinTreeScale,
+                        _terrainProfile.MaxTreeScale,
+                        ResolveTerrainHeight));
+                }
+            }
+
+            // Extra ring of trees around the spawn point so player is enclosed
+            allTreePlacements.AddRange(ForestPlacementPlanner.GenerateClusters(
+                20,
+                25,
+                _pathWaypoints != null && _pathWaypoints.Length > 0 ? _pathWaypoints[0] : pathCenter,
+                15f,
+                4f,
+                _terrainProfile.Seed + 7777,
+                _terrainProfile.MinTreeScale,
+                _terrainProfile.MaxTreeScale,
+                ResolveTerrainHeight));
+
+            SpawnPrefabs(_terrainProfile.TreePrefabs, allTreePlacements, "Tree");
+
+            // Background forest across the rest of the terrain
+            int bgTreeClusters = 60;
+            List<ForestPlacementPlanner.PlacementSample> bgTreePlacements = ForestPlacementPlanner.GenerateClusters(
+                bgTreeClusters,
+                50,
                 terrainCenter,
                 _terrainProfile.TreeRadius,
-                _terrainProfile.TreeRadius * 0.25f,
-                _terrainProfile.Seed,
+                10f,
+                _terrainProfile.Seed + 500,
                 _terrainProfile.MinTreeScale,
                 _terrainProfile.MaxTreeScale,
                 ResolveTerrainHeight);
 
-            SpawnPrefabs(_terrainProfile.TreePrefabs, treePlacements, "Tree");
+            SpawnPrefabs(_terrainProfile.TreePrefabs, bgTreePlacements, "BgTree");
 
-            List<ForestPlacementPlanner.PlacementSample> foliagePlacements = ForestPlacementPlanner.GenerateClusters(
-                8,
-                Mathf.Max(1, _terrainProfile.FoliageCount / 8),
-                terrainCenter,
-                _terrainProfile.FoliageRadius,
-                _terrainProfile.FoliageRadius * 0.1f,
-                _terrainProfile.Seed + 211,
-                _terrainProfile.MinFoliageScale,
-                _terrainProfile.MaxFoliageScale,
-                ResolveTerrainHeight);
+            // Dense foliage right next to path
+            List<ForestPlacementPlanner.PlacementSample> foliagePlacements = new List<ForestPlacementPlanner.PlacementSample>();
+            if (_pathWaypoints != null && _pathWaypoints.Length >= 2)
+            {
+                for (int seg = 0; seg < _pathWaypoints.Length - 1; seg++)
+                {
+                    Vector3 segCenter = (_pathWaypoints[seg] + _pathWaypoints[seg + 1]) * 0.5f;
+                    float segLength = Vector3.Distance(_pathWaypoints[seg], _pathWaypoints[seg + 1]);
+
+                    foliagePlacements.AddRange(ForestPlacementPlanner.GenerateClusters(
+                        15,
+                        20,
+                        segCenter,
+                        Mathf.Max(segLength * 0.5f, 6f),
+                        2f,
+                        _terrainProfile.Seed + 211 + seg * 97,
+                        _terrainProfile.MinFoliageScale,
+                        _terrainProfile.MaxFoliageScale,
+                        ResolveTerrainHeight));
+                }
+            }
 
             SpawnPrefabs(_terrainProfile.FoliagePrefabs, foliagePlacements, "Foliage");
 
+            // Rocks along path
+            int rockClusters = 20;
             List<ForestPlacementPlanner.PlacementSample> rockPlacements = ForestPlacementPlanner.GenerateClusters(
-                3,
-                Mathf.Max(1, _terrainProfile.RockCount / 3),
-                terrainCenter,
-                _terrainProfile.RockRadius,
-                _terrainProfile.RockRadius * 0.15f,
+                rockClusters,
+                Mathf.Max(1, _terrainProfile.RockCount / rockClusters),
+                pathCenter,
+                25f,
+                5f,
                 _terrainProfile.Seed + 997,
                 _terrainProfile.MinRockScale,
                 _terrainProfile.MaxRockScale,
                 ResolveTerrainHeight);
 
             SpawnPrefabs(_terrainProfile.RockPrefabs, rockPlacements, "Rock");
+        }
+
+        private Vector3 GetPathCenter(Vector3 fallback)
+        {
+            if (_pathWaypoints == null || _pathWaypoints.Length == 0)
+            {
+                return fallback;
+            }
+
+            Vector3 sum = Vector3.zero;
+            for (int i = 0; i < _pathWaypoints.Length; i++)
+            {
+                sum += _pathWaypoints[i];
+            }
+            return sum / _pathWaypoints.Length;
+        }
+
+        [Header("Exclusion")]
+        [SerializeField] private Vector3 _villageCenter = new Vector3(340f, 0f, 150f);
+        [SerializeField] private Vector2 _villageExclusionSize = new Vector2(170f, 140f);
+
+        [Header("Tutorial Path")]
+        [SerializeField] private Vector3[] _pathWaypoints;
+        [SerializeField] private float _pathWidth = 5f;
+
+        private bool IsInsideVillageExclusion(Vector3 worldPosition)
+        {
+            float dx = Mathf.Abs(worldPosition.x - _villageCenter.x);
+            float dz = Mathf.Abs(worldPosition.z - _villageCenter.z);
+            return dx < _villageExclusionSize.x * 0.5f && dz < _villageExclusionSize.y * 0.5f;
+        }
+
+        private bool IsInsidePathCorridor(Vector3 worldPosition)
+        {
+            if (_pathWaypoints == null || _pathWaypoints.Length < 2)
+            {
+                return false;
+            }
+
+            float halfWidth = _pathWidth * 0.5f;
+            Vector2 p = new Vector2(worldPosition.x, worldPosition.z);
+
+            for (int i = 0; i < _pathWaypoints.Length - 1; i++)
+            {
+                Vector2 a = new Vector2(_pathWaypoints[i].x, _pathWaypoints[i].z);
+                Vector2 b = new Vector2(_pathWaypoints[i + 1].x, _pathWaypoints[i + 1].z);
+                Vector2 ab = b - a;
+                float sqrLen = ab.sqrMagnitude;
+                float t = sqrLen > 0f ? Mathf.Clamp01(Vector2.Dot(p - a, ab) / sqrLen) : 0f;
+                float dist = Vector2.Distance(p, a + ab * t);
+                if (dist < halfWidth)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool IsExcluded(Vector3 worldPosition)
+        {
+            return IsInsideVillageExclusion(worldPosition) || IsInsidePathCorridor(worldPosition);
         }
 
         private void SpawnPrefabs(GameObject[] prefabs, List<ForestPlacementPlanner.PlacementSample> placements, string category)
@@ -187,6 +303,7 @@ namespace Ashenveil.World
                 return;
             }
 
+            int nameIndex = 0;
             for (int i = 0; i < placements.Count; i++)
             {
                 GameObject prefab = prefabs[i % prefabs.Length];
@@ -196,12 +313,43 @@ namespace Ashenveil.World
                 }
 
                 ForestPlacementPlanner.PlacementSample sample = placements[i];
+
+                if (IsExcluded(sample.Position))
+                {
+                    continue;
+                }
+
                 GameObject instance = CreatePrefabInstance(prefab);
-                instance.name = $"{category}_{i:000}";
+                instance.name = $"{category}_{nameIndex:000}";
                 instance.transform.SetParent(_contentRoot, false);
                 instance.transform.position = sample.Position;
                 instance.transform.rotation = sample.Rotation;
                 instance.transform.localScale = prefab.transform.localScale * sample.Scale;
+                EnsureCollider(instance, category);
+                nameIndex++;
+            }
+        }
+
+        private static void EnsureCollider(GameObject instance, string category)
+        {
+            if (instance.GetComponentInChildren<Collider>() != null)
+            {
+                return;
+            }
+
+            // Add a capsule collider approximating a tree trunk or rock body
+            CapsuleCollider capsule = instance.AddComponent<CapsuleCollider>();
+            if (category.Contains("Tree") || category.Contains("BgTree"))
+            {
+                capsule.center = new Vector3(0f, 2.5f, 0f);
+                capsule.radius = 0.4f;
+                capsule.height = 5f;
+            }
+            else if (category.Contains("Rock"))
+            {
+                capsule.center = new Vector3(0f, 0.75f, 0f);
+                capsule.radius = 1f;
+                capsule.height = 1.5f;
             }
         }
 

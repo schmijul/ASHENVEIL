@@ -1,7 +1,10 @@
 {
     "name": "Ashenveil.World.Editor",
     "references": [
-        "Ashenveil.Runtime"
+        "Ashenveil.Runtime",
+        "Unity.InputSystem",
+        "Unity.RenderPipelines.HighDefinition.Runtime",
+        "Unity.RenderPipelines.HighDefinition.Editor"
     ],
     "includePlatforms": [
         "Editor"

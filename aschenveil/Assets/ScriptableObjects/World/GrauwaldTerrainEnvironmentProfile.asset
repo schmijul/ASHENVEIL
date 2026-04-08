@@ -20,16 +20,16 @@ MonoBehaviour:
   _detailDensity: 0.8
   _detailDistance: 80
   _seed: 1337
-  _treeCount: 72
-  _rockCount: 18
+  _treeCount: 8000
+  _rockCount: 200
   _treeRadius: 210
   _rockRadius: 220
-  _minTreeScale: 0.8
-  _maxTreeScale: 1.35
+  _minTreeScale: 1.5
+  _maxTreeScale: 3
   _minRockScale: 0.9
   _maxRockScale: 1.6
-  _foliageCount: 120
-  _foliageRadius: 235
+  _foliageCount: 5000
+  _foliageRadius: 220
   _minFoliageScale: 0.65
   _maxFoliageScale: 1.1
   _terrainLayers:
@@ -43,6 +43,11 @@ MonoBehaviour:
   - {fileID: 1645526336901229211, guid: 956e26a3af980354097d662d3a60ccf7, type: 3}
   - {fileID: 6894764567499446686, guid: 70c4552c857b77046aa6889397c25838, type: 3}
   - {fileID: 4193269986145827776, guid: 8a3cce0950dcc8e4ba60b6ac23e18937, type: 3}
+  - {fileID: 1478839899352244680, guid: 56097d59501df1043b06ebeb1df3db6b, type: 3}
+  - {fileID: 2872324282071052627, guid: 2549a1f440d27e5468765f53a1eef072, type: 3}
+  - {fileID: 5917764883595587885, guid: 1c5940ef19fcfe8459baeb233edc1583, type: 3}
+  - {fileID: 2656618318678544221, guid: 28a975aa8310cae41add1e09a208bd6e, type: 3}
+  - {fileID: 4842892958372797939, guid: d606c02a095ed03439719ba47e0c3033, type: 3}
   _rockPrefabs:
   - {fileID: 1198013417640408, guid: ac1cc01cb5dbf5d4f869c403b38f8a21, type: 3}
   - {fileID: 1451074748068950, guid: 29636f40562819649b730c52f1babbcb, type: 3}
@@ -52,3 +57,11 @@ MonoBehaviour:
   _foliagePrefabs:
   - {fileID: 1991978804857108, guid: 791c30b04e8fc1e4fbf198c410a652e2, type: 3}
   - {fileID: 1904171308060102, guid: b3425777f1700b249a15eea0ea8f0bbc, type: 3}
+  - {fileID: 1388669418821280, guid: d847662c87650af43970fd3f56863e4b, type: 3}
+  - {fileID: 1844802077295738, guid: 0aaaf5da864f53f4186ac02f297713e4, type: 3}
+  - {fileID: 1666016183288146, guid: 215a971f0f2e59047bf9b5991ec49964, type: 3}
+  - {fileID: 1584198843794870, guid: 3dbf7e32b433b4b4f9ca4247821b0872, type: 3}
+  - {fileID: 1298312920657734, guid: 26555b26396cb3e4c98a3fe5b98ad384, type: 3}
+  - {fileID: 1558286725303858, guid: d9c2d9527916d3a49bfbf8d4d271f137, type: 3}
+  - {fileID: 1500624771082482, guid: 235c91829ddd0614f9bf8dff8e983851, type: 3}
+  - {fileID: 1414568500485950, guid: 95cf8b79f70bffc4fabde5c6854002ac, type: 3}
