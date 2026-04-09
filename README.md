@@ -1,47 +1,56 @@
-# Ashenveil — 3D Action RPG Demo
+# Ashenveil
 
-An open-world action RPG demo built in Unity 6.3 LTS (URP).
+Ashenveil is an in-progress 3D action RPG demo project built with Unity 6.3 LTS. The target is a 30-45 minute prologue set around Grauwald forest and the village of Grauweiler.
 
-## What is this?
-A playable 30-45 minute demo set in the village of Grauweiler: hunt wildlife, trade with NPCs, discover Aether magic, and survive when the village is destroyed.
+## Current State
 
-## Current Progress
-- Core gameplay foundation is in place: player controller, terrain/forest, village, combat, inventory, NPC/dialog foundations.
-- The main scene is `Assets/Scenes/Grauwald.unity`.
-- Asset Store content is used locally under `Assets/`, but it is not downloaded or versioned from this repo. The repo only documents the packages and their authors so the project can be reconstructed on a fresh machine.
-- The local `docs/BUILD_LOG.md` tracks the system-by-system build state during development.
-
-## Tech Stack
-- **Engine:** Unity 6.3 LTS (URP)
-- **Art:** PBR assets from Unity Asset Store + free packs
-
-## Asset Notes
-The Unity Asset Store packages in this project are installed locally in the `Assets/` tree. They are referenced in the documentation, but they are not intended to be re-downloaded or redistributed through git.
+- The tracked Unity project lives in `aschenveil/`.
+- Open the project with Unity `6000.3.12f1`.
+- The main scene is `aschenveil/Assets/Scenes/Grauwald.unity`.
+- The project is currently configured to use HDRP.
+- `main` already contains gameplay foundations for player movement, third-person camera, terrain/forest setup, village layout, melee combat, inventory, and supporting EditMode tests.
+- Wildlife AI and NPC/dialog code are also present, but the repository is still an active prototype rather than a finished playable vertical slice.
 
 ## Getting Started
 
-### 1. Clone & Setup Unity
 ```bash
-git clone https://github.com/YOUR_USERNAME/Ashenveil.git
-cd Ashenveil
-```
-Open in Unity Hub → Add project → Select folder → Open with Unity 6.3 LTS (URP).
-
-## Project Structure
-```
-docs/
-├── GDD.md                   # Game Design Document
-└── BUILD_LOG.md             # Build progress tracker
-Assets/
-├── Scripts/                 # All C# game code
-├── ScriptableObjects/       # Data definitions
-├── Scenes/                  # Unity scenes
-├── Tests/                   # EditMode + PlayMode tests
-└── ...                      # Assets, Materials, VFX, Audio
+git clone https://github.com/schmijul/ASHENVEIL.git
+cd ASHENVEIL
 ```
 
-## Build Order
-The project is developed system by system on feature branches and integrated into `main` after validation.
+Then open `ASHENVEIL/aschenveil` in Unity Hub with editor version `6000.3.12f1`.
+
+## Project Layout
+
+```text
+README.md
+aschenveil/
+├── Assets/
+│   ├── Scenes/
+│   ├── ScriptableObjects/
+│   ├── Scripts/
+│   ├── Settings/
+│   └── Tests/
+├── Packages/
+└── ProjectSettings/
+```
+
+## Notes On Assets
+
+This repository tracks the authored gameplay code, scene assets, tests, and render-pipeline configuration needed to work on the project.
+
+Large third-party Asset Store content under `aschenveil/Assets/` is intentionally excluded from git. If you open the project on a fresh machine, expect to restore those local art/content packages separately.
+
+## Testing
+
+EditMode tests live under `aschenveil/Assets/Tests/EditMode/`.
+
+Run them from Unity Test Runner or via Unity batch mode, for example:
+
+```bash
+unity -runTests -testPlatform EditMode -projectPath aschenveil
+```
 
 ## License
-This project is a personal experiment. Assets from the Unity Asset Store are subject to their respective licenses.
+
+Project code and original project files are part of a personal prototype. Third-party assets remain subject to their respective licenses.
