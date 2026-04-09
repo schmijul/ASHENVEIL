@@ -129,6 +129,7 @@ namespace Ashenveil.World.Editor
             // Player spawns in the forest for Phase 1 (The Hunt), not in the village
             Vector3 forestSpawnPoint = TutorialPathWaypoints[0];
             BuildPlayerSetup(root.transform, forestSpawnPoint, bootstrapper.Terrain);
+            root.AddComponent<Ashenveil.World.OpeningLoopBootstrapper>();
             BuildTutorialObstacles(root.transform, bootstrapper.Terrain);
 
             UpgradeSceneMaterialsToURP(root.transform);

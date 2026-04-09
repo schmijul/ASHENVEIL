@@ -11,6 +11,18 @@ Ashenveil is an in-progress 3D action RPG demo project built with Unity 6.3 LTS.
 - `main` already contains gameplay foundations for player movement, third-person camera, terrain/forest setup, village layout, melee combat, inventory, and supporting EditMode tests.
 - Wildlife AI and NPC/dialog code are also present, but the repository is still an active prototype rather than a finished playable vertical slice.
 
+## Opening Loop Integration Branch
+
+- Branch `feature/opening-loop-integration` adds a runtime bootstrap pass for the first demo slice inside `Grauwald`.
+- The scene now wires placeholder opening-loop content for:
+  - player combat/runtime inventory
+  - one wildlife encounter with loot drops
+  - elder and trader interactions
+  - a minimal debug HUD for playtesting
+- EditMode validation is green: `51/51` passed in Unity batch mode.
+- PlayMode validation is partially green: `3/4` smoke tests pass.
+- The remaining blocker is melee hit registration in `CombatAttack_NearbyBoar_ReducesWildlifeHealth`, so this branch is not merge-ready yet.
+
 ## Getting Started
 
 ```bash
@@ -44,11 +56,16 @@ Large third-party Asset Store content under `aschenveil/Assets/` is intentionall
 ## Testing
 
 EditMode tests live under `aschenveil/Assets/Tests/EditMode/`.
+PlayMode smoke tests for the integrated opening loop live under `aschenveil/Assets/Tests/PlayMode/`.
 
 Run them from Unity Test Runner or via Unity batch mode, for example:
 
 ```bash
 unity -runTests -testPlatform EditMode -projectPath aschenveil
+```
+
+```bash
+unity -runTests -testPlatform PlayMode -projectPath aschenveil
 ```
 
 ## License

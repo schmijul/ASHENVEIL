@@ -31,11 +31,6 @@ namespace Ashenveil.Inventory
 
         private void Awake()
         {
-            if (_item == null)
-            {
-                Debug.LogError($"{nameof(InventoryPickup)} on {name} is missing an item reference.", this);
-            }
-
             _basePosition = transform.position;
             _hasBasePosition = true;
         }
@@ -100,6 +95,15 @@ namespace Ashenveil.Inventory
             }
 
             return true;
+        }
+
+        public void Configure(ItemData item, int quantity, bool destroyOnPickup = true)
+        {
+            _item = item;
+            _quantity = Mathf.Max(1, quantity);
+            _destroyOnPickup = destroyOnPickup;
+            _basePosition = transform.position;
+            _hasBasePosition = true;
         }
     }
 }

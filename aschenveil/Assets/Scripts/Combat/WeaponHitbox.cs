@@ -44,7 +44,9 @@ namespace Ashenveil.Combat
         {
             _hitTargets.Clear();
             _isSwingActive = true;
+            Physics.SyncTransforms();
             ConfigureCollider(true);
+            ScanImmediateContacts();
         }
 
         public void EndSwing()
@@ -112,6 +114,22 @@ namespace Ashenveil.Combat
 
             _hitTargets.Add(damageable);
             TargetHit?.Invoke(damageable, other);
+        }
+
+        private void ScanImmediateContacts()
+        {
+            if (_hitboxCollider == null || !_hitboxCollider.enabled)
+            {
+                return;
+            }
+
+            Bounds bounds = _hitboxCollider.bounds;
+            float radius = Mathf.Max(bounds.extents.x, bounds.extents.y, bounds.extents.z);
+            Collider[] overlapping = Physics.OverlapSphere(bounds.center, radius, ~0, QueryTriggerInteraction.Collide);
+            for (int index = 0; index < overlapping.Length; index++)
+            {
+                TryRegisterHit(overlapping[index]);
+            }
         }
 
         private static bool TryResolveDamageable(Collider other, out IDamageable damageable)

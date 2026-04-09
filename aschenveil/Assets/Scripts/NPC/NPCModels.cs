@@ -206,6 +206,13 @@ namespace Ashenveil.NPC
             return npcData;
         }
 
+        public void SetIdentity(string npcName, string title, bool isEssential)
+        {
+            _npcName = string.IsNullOrWhiteSpace(npcName) ? "NPC" : npcName;
+            _title = title ?? string.Empty;
+            _isEssential = isEssential;
+        }
+
         public void SetSchedule(IEnumerable<NPCScheduleEntry> entries)
         {
             _schedule = entries?.ToArray() ?? Array.Empty<NPCScheduleEntry>();

@@ -256,6 +256,28 @@ namespace Ashenveil.Combat
             PublishCombatStateIfChanged();
         }
 
+        public void RefreshRuntimeReferences()
+        {
+            WeaponHitbox previousHitbox = _weaponHitbox;
+            ResolveReferences();
+
+            if (!isActiveAndEnabled || previousHitbox == _weaponHitbox)
+            {
+                return;
+            }
+
+            if (previousHitbox != null)
+            {
+                previousHitbox.TargetHit -= HandleWeaponHitboxTargetHit;
+            }
+
+            if (_weaponHitbox != null)
+            {
+                _weaponHitbox.TargetHit -= HandleWeaponHitboxTargetHit;
+                _weaponHitbox.TargetHit += HandleWeaponHitboxTargetHit;
+            }
+        }
+
         private void CancelCurrentAttackVisuals()
         {
             if (_weaponHitbox != null)

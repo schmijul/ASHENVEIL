@@ -8,7 +8,6 @@ namespace Ashenveil.NPC
     /// <summary>
     /// Scene-facing NPC runtime controller that applies schedules and exposes dialog requests.
     /// </summary>
-    [RequireComponent(typeof(NavMeshAgent))]
     public class NpcController : MonoBehaviour
     {
         private const string IsMovingParameter = "isMoving";
@@ -57,6 +56,14 @@ namespace Ashenveil.NPC
             }
 
             ApplyScheduleEntry(_npcData.ResolveSchedule(hour));
+        }
+
+        public void Initialize(NPCData npcData)
+        {
+            _npcData = npcData;
+            ResolveReferences();
+            ApplyBaseMovementSettings();
+            ApplyScheduleEntry(_npcData != null ? _npcData.ResolveSchedule(12f) : null);
         }
 
         public void ApplyScheduleEntry(NPCScheduleEntry entry)

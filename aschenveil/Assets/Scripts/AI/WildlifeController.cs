@@ -105,6 +105,11 @@ namespace Ashenveil.AI
             ResolveReferences();
         }
 
+        public void SetPlayerTarget(Transform playerTarget)
+        {
+            _playerTarget = playerTarget;
+        }
+
         private void ResolveReferences()
         {
             if (_health == null)
