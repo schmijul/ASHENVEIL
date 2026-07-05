@@ -1,3 +1,5 @@
+using System;
+using Ashenveil.Core;
 using Ashenveil.Player;
 using UnityEngine;
 
@@ -19,11 +21,22 @@ namespace Ashenveil.Combat
 
         private CombatModel _model;
         private bool _hitboxActive;
+        private Func<DamageInfo, DamageInfo> _damageModifier;
 
         /// <summary>
         /// Current deterministic combat model.
         /// </summary>
         public CombatModel Model => _model;
+
+        /// <summary>
+        /// Installs an optional post-processor applied to each swing's damage payload
+        /// just before the hitbox opens. Used by the aether system to convert a swing
+        /// into an empowered <see cref="DamageType.Aether"/> strike. Pass null to clear.
+        /// </summary>
+        public void SetDamageModifier(Func<DamageInfo, DamageInfo> modifier)
+        {
+            _damageModifier = modifier;
+        }
 
         private void Awake()
         {
@@ -91,7 +104,13 @@ namespace Ashenveil.Combat
             CombatModel.State state = _model.Tick(Time.deltaTime);
             if (state.IsAttackActive && !_hitboxActive)
             {
-                _weaponHitbox.BeginSwing(_model.CreateDamageInfo(_damageOrigin.position));
+                DamageInfo damage = _model.CreateDamageInfo(_damageOrigin.position);
+                if (_damageModifier != null)
+                {
+                    damage = _damageModifier(damage);
+                }
+
+                _weaponHitbox.BeginSwing(damage);
                 _hitboxActive = true;
             }
             else if (!state.IsAttackActive && _hitboxActive)
