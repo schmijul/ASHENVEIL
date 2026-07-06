@@ -126,10 +126,21 @@ namespace Ashenveil.World.Editor
             ground.transform.localScale = new Vector3(40f, 1f, 40f); // 400x400 m
             var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"))
             {
-                color = new Color(0.16f, 0.20f, 0.11f)
+                color = new Color(0.5f, 0.55f, 0.45f)
             };
             mat.SetFloat("_Smoothness", 0.03f);
             mat.SetFloat("_Metallic", 0f);
+
+            // Tiling forest-floor texture from the Viking Village terrain set.
+            var grass = AssetDatabase.LoadAssetAtPath<Texture2D>(
+                "Assets/Viking Village/Textures/Terrain/terrain_grass_01_a.tif");
+            if (grass != null)
+            {
+                mat.SetTexture("_BaseMap", grass);
+                mat.SetTextureScale("_BaseMap", new Vector2(60f, 60f)); // ~6.7 m per tile
+                mat.color = new Color(0.7f, 0.72f, 0.62f);
+            }
+
             AssetDatabase.CreateAsset(mat, "Assets/Settings/GroundMaterial.asset");
             ground.GetComponent<MeshRenderer>().sharedMaterial = mat;
             ground.isStatic = true;
