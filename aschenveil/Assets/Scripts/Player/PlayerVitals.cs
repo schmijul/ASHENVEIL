@@ -57,10 +57,28 @@ namespace Ashenveil.Player
             }
         }
 
+        private float _corruptionPenalty;
+
         /// <summary>
-        /// Maximum health value.
+        /// Maximum health value, reduced by the current aether corruption penalty.
         /// </summary>
-        public float MaxHealth => Mathf.Max(1f, _maxHealth);
+        public float MaxHealth => Mathf.Max(1f, _maxHealth * (1f - _corruptionPenalty));
+
+        /// <summary>
+        /// Sets the fraction (0..1) by which corruption reduces max health, and clamps
+        /// current health to the new maximum. Referenced GDD section: Kernsysteme / Äther.
+        /// </summary>
+        public void SetCorruptionPenalty(float penalty01)
+        {
+            EnsureInitialized();
+            _corruptionPenalty = Mathf.Clamp01(penalty01);
+            if (_currentHealth > MaxHealth)
+            {
+                _currentHealth = MaxHealth;
+            }
+
+            HealthChanged?.Invoke(_currentHealth, MaxHealth);
+        }
 
         /// <summary>
         /// Player stamina model.

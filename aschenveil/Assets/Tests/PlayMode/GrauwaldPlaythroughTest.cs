@@ -89,6 +89,17 @@ namespace Ashenveil.Tests.PlayMode
             Assert.Greater(pool.Model.Charge, 0f, "Touching the crystal should grant aether charge.");
             Assert.AreEqual(DemoPhase.BossFight, flow.Phase, "Aether touch should advance to BossFight.");
 
+            // Corruption should now bite: spending enough aether shrinks max HP.
+            var vitals = player.GetComponent<Ashenveil.Player.PlayerVitals>();
+            float maxBefore = vitals.MaxHealth;
+            for (int i = 0; i < 12; i++)
+            {
+                pool.Model.Absorb(30f);
+                pool.Model.SpendForEmpoweredAttack(30f); // adds corruption
+            }
+            yield return null;
+            Assert.Less(vitals.MaxHealth, maxBefore, "Corruption should reduce the player's max health.");
+
             // --- Phase 6: boss (aether-only) ---
             var boss = Find<MutatedWolfBossController>();
             Assert.IsNotNull(boss, "Boss missing.");

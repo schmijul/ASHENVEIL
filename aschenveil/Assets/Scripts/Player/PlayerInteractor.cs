@@ -37,6 +37,7 @@ namespace Ashenveil.Player
             if (_movementController != null)
             {
                 _movementController.InteractPressed += OnInteractPressed;
+                _movementController.LootPressed += OnLootPressed;
             }
         }
 
@@ -45,6 +46,7 @@ namespace Ashenveil.Player
             if (_movementController != null)
             {
                 _movementController.InteractPressed -= OnInteractPressed;
+                _movementController.LootPressed -= OnLootPressed;
             }
         }
 
@@ -76,6 +78,15 @@ namespace Ashenveil.Player
         private void OnInteractPressed(PlayerContext context)
         {
             _current?.Interact(context);
+        }
+
+        private void OnLootPressed()
+        {
+            // F is the dedicated loot key; it activates the focused container/pickup.
+            if (_current != null && _movementController != null)
+            {
+                _current.Interact(_movementController.Context);
+            }
         }
     }
 }

@@ -22,8 +22,26 @@ namespace Ashenveil.AI.Boss
         [SerializeField] private float _enrageHealthFraction = 0.4f;
         [SerializeField] private float _lungeCooldown = 2.5f;
 
+        [Header("Chase & attack")]
+        [SerializeField] private Transform _target;
+        [SerializeField] private float _moveSpeed = 3.2f;
+        [SerializeField] private float _enrageSpeedMultiplier = 1.6f;
+        [SerializeField] private float _attackRange = 2.6f;
+        [SerializeField] private float _attackDamage = 14f;
+        [SerializeField] private float _attackKnockback = 4f;
+
         private MutatedWolfBossModel _model;
         private bool _active;
+        private IDamageable _targetDamageable;
+
+        /// <summary>
+        /// Assigns the pursuit target (the player) and its damageable, wired by the scene builder.
+        /// </summary>
+        public void SetTarget(Transform target, IDamageable targetDamageable)
+        {
+            _target = target;
+            _targetDamageable = targetDamageable;
+        }
 
         /// <summary>
         /// Raised when the boss health fraction changes. Args: displayName, fraction.
@@ -94,9 +112,41 @@ namespace Ashenveil.AI.Boss
             }
 
             BossAction action = _model.Tick(Time.deltaTime);
-            // Locomotion/attack playback for the chosen action is wired by the scene
-            // builder via animation hooks; the model owns the decision + cadence.
-            _ = action;
+
+            if (_target == null)
+            {
+                return;
+            }
+
+            if (_targetDamageable == null)
+            {
+                _targetDamageable = _target.GetComponentInParent<IDamageable>();
+            }
+
+            Vector3 toTarget = _target.position - transform.position;
+            toTarget.y = 0f;
+            float distance = toTarget.magnitude;
+
+            // Face and close on the player.
+            if (distance > 0.01f)
+            {
+                Vector3 dir = toTarget / distance;
+                transform.rotation = Quaternion.Slerp(
+                    transform.rotation, Quaternion.LookRotation(dir), 6f * Time.deltaTime);
+
+                if (distance > _attackRange)
+                {
+                    float speed = _model.Phase == BossPhase.Enrage ? _moveSpeed * _enrageSpeedMultiplier : _moveSpeed;
+                    transform.position += dir * speed * Time.deltaTime;
+                }
+            }
+
+            // On a chosen attack within range, hit the player.
+            if (action != BossAction.None && distance <= _attackRange && _targetDamageable != null && _targetDamageable.IsAlive)
+            {
+                float dmg = action == BossAction.Lunge ? _attackDamage * 1.5f : _attackDamage;
+                _targetDamageable.TakeDamage(new DamageInfo(dmg, DamageType.Physical, transform.position, _attackKnockback));
+            }
         }
 
         private void EnsureModel()

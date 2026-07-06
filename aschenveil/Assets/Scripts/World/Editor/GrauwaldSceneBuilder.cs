@@ -65,18 +65,21 @@ namespace Ashenveil.World.Editor
             // Aether crystal in the deep-forest clearing.
             AetherCrystal crystal = BuildCrystal(rig.AetherPool);
 
-            // Boss + arena.
-            (MutatedWolfBossController boss, BossArenaTrigger arena) = BuildBoss();
+            // Boss + arena (chases and damages the player).
+            (MutatedWolfBossController boss, BossArenaTrigger arena) = BuildBoss(rig);
 
             // Wildlife hunting grounds between start and village.
             BuildWildlife(content, rig.Root.transform);
+
+            // Quest items scattered in the world (herbs on the forest walk, hammer by the rocks).
+            List<GameServices.QuestItemLink> questLinks = BuildQuestItems(content, rig.Inventory);
 
             // UI + services + director.
             UiRefs ui = BuildUi(rig, content);
             var director = BuildDirector(ui, villageNormal, villageBurning);
 
             // NPCs (healer, smith, vendor) with their dialog/trade + services wiring.
-            BuildNpcs(content, rig, ui, director);
+            BuildNpcs(content, rig, ui, director, questLinks);
 
             BossBind(ui.BossBar, boss, arena);
 
@@ -411,6 +414,11 @@ namespace Ashenveil.World.Editor
             SetRef(glow, "_aetherPool", aetherPool);
             SetRef(glow, "_handLight", handLight);
 
+            // Corruption penalty: overusing aether shrinks max HP.
+            var corruption = root.AddComponent<CorruptionEffect>();
+            SetRef(corruption, "_aetherPool", aetherPool);
+            SetRef(corruption, "_vitals", vitals);
+
             // Aether spark particles on the hand.
             GameObject handParticles = VfxFactory.BuildHandGlow(handGo.transform, new Color(0.4f, 0.9f, 1f));
             var ps = handParticles.GetComponent<ParticleSystem>();
@@ -490,7 +498,7 @@ namespace Ashenveil.World.Editor
 
         // ---------------------------------------------------------------- boss
 
-        private static (MutatedWolfBossController, BossArenaTrigger) BuildBoss()
+        private static (MutatedWolfBossController, BossArenaTrigger) BuildBoss(PlayerRig rig)
         {
             var bossGo = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             bossGo.name = "MutatedWolf";
@@ -511,6 +519,9 @@ namespace Ashenveil.World.Editor
             trigger.radius = 14f;
             var arena = arenaGo.AddComponent<BossArenaTrigger>();
             SetRef(arena, "_boss", boss);
+
+            // Chase + damage the player (damageable resolved from the target at runtime).
+            SetRef(boss, "_target", rig.Root.transform);
 
             return (boss, arena);
         }
@@ -625,7 +636,61 @@ namespace Ashenveil.World.Editor
 
         // ---------------------------------------------------------------- NPCs
 
-        private static void BuildNpcs(GrauwaldContentFactory.Content content, PlayerRig rig, UiRefs ui, DemoDirector director)
+        private static List<GameServices.QuestItemLink> BuildQuestItems(GrauwaldContentFactory.Content content, PlayerInventory inventory)
+        {
+            var root = new GameObject("QuestItems");
+            var rng = new System.Random(909);
+
+            // 5 Blutmoos herbs scattered along the forest walk (z between -120 and -30).
+            for (int i = 0; i < 5; i++)
+            {
+                float x = (float)(rng.NextDouble() * 60.0 - 30.0);
+                float z = -120f + i * 20f;
+                MakePickup(root.transform, "Herb_" + i, content.Herb, 1, new Vector3(x, 0.3f, z),
+                    new Color(0.5f, 0.1f, 0.2f));
+            }
+
+            // The smith's lost hammer near the rocks by the crystal path.
+            MakePickup(root.transform, "Hammer", content.Hammer, 1, new Vector3(-14f, 0.4f, 40f),
+                new Color(0.4f, 0.3f, 0.2f));
+
+            return new List<GameServices.QuestItemLink>
+            {
+                new GameServices.QuestItemLink { Item = content.Herb, QuestId = "quest_herbs", ObjectiveId = "collect_herbs" },
+                new GameServices.QuestItemLink { Item = content.Hammer, QuestId = "quest_tool", ObjectiveId = "find_hammer" }
+            };
+        }
+
+        private static void MakePickup(Transform parent, string name, ItemDefinition item, int qty, Vector3 pos, Color color)
+        {
+            var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            go.name = "Pickup_" + name;
+            go.transform.SetParent(parent, false);
+            go.transform.position = pos;
+            go.transform.localScale = Vector3.one * 0.5f;
+
+            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = color };
+            mat.EnableKeyword("_EMISSION");
+            mat.SetColor("_EmissionColor", color * 1.5f);
+            go.GetComponent<MeshRenderer>().sharedMaterial = mat;
+            go.GetComponent<Collider>().isTrigger = true;
+
+            var pickup = go.AddComponent<ItemPickup>();
+            SetPickupItem(pickup, item, qty);
+        }
+
+        private static void SetPickupItem(ItemPickup pickup, ItemDefinition item, int qty)
+        {
+            var so = new SerializedObject(pickup);
+            SerializedProperty arr = so.FindProperty("_items");
+            arr.arraySize = 1;
+            SerializedProperty e = arr.GetArrayElementAtIndex(0);
+            e.FindPropertyRelative("_item").objectReferenceValue = item;
+            e.FindPropertyRelative("_quantity").intValue = qty;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void BuildNpcs(GrauwaldContentFactory.Content content, PlayerRig rig, UiRefs ui, DemoDirector director, List<GameServices.QuestItemLink> questLinks)
         {
             var speakers = new List<Object>();
             var vendors = new List<Object>();
@@ -647,6 +712,23 @@ namespace Ashenveil.World.Editor
             SetList(services, "_quests", ToObjectList(content.AllQuests));
             SetList(services, "_speakers", speakers);
             SetList(services, "_vendors", vendors);
+            SetQuestItemLinks(services, questLinks);
+        }
+
+        private static void SetQuestItemLinks(Object target, List<GameServices.QuestItemLink> links)
+        {
+            var so = new SerializedObject(target);
+            SerializedProperty prop = so.FindProperty("_questItemLinks");
+            prop.arraySize = links.Count;
+            for (int i = 0; i < links.Count; i++)
+            {
+                SerializedProperty e = prop.GetArrayElementAtIndex(i);
+                e.FindPropertyRelative("Item").objectReferenceValue = links[i].Item;
+                e.FindPropertyRelative("QuestId").stringValue = links[i].QuestId;
+                e.FindPropertyRelative("ObjectiveId").stringValue = links[i].ObjectiveId;
+            }
+
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static GameObject BuildNpcRoot(string name, Vector3 pos, Vector3 facePos)

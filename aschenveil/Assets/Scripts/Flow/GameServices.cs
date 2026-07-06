@@ -30,8 +30,20 @@ namespace Ashenveil.Flow
         [SerializeField] private List<QuestDefinition> _quests = new List<QuestDefinition>();
         [SerializeField] private List<DialogSpeaker> _speakers = new List<DialogSpeaker>();
         [SerializeField] private List<VendorController> _vendors = new List<VendorController>();
+        [SerializeField] private List<QuestItemLink> _questItemLinks = new List<QuestItemLink>();
 
         private QuestLogModel _questLog;
+
+        /// <summary>
+        /// Maps a collectible item to a quest objective so looting it advances the quest.
+        /// </summary>
+        [System.Serializable]
+        public struct QuestItemLink
+        {
+            public ItemDefinition Item;
+            public string QuestId;
+            public string ObjectiveId;
+        }
 
         /// <summary>
         /// The shared quest log.
@@ -62,6 +74,30 @@ namespace Ashenveil.Flow
                     captured.SessionStarted += session => OnVendorSession(captured, session);
                 }
             }
+
+            GameSignals.ItemLooted += OnItemLooted;
+        }
+
+        private void OnItemLooted(ItemDefinition item, int amount)
+        {
+            if (item == null || _questLog == null)
+            {
+                return;
+            }
+
+            foreach (QuestItemLink link in _questItemLinks)
+            {
+                if (link.Item == item)
+                {
+                    // Start the quest implicitly if the player finds the item first.
+                    if (_questLog.GetQuestState(link.QuestId) == QuestState.Inactive)
+                    {
+                        _questLog.StartQuest(link.QuestId);
+                    }
+
+                    _questLog.ReportProgress(link.QuestId, link.ObjectiveId, amount);
+                }
+            }
         }
 
         private void OnDisable()
@@ -76,6 +112,7 @@ namespace Ashenveil.Flow
 
             // Vendor sessions are subscribed via capturing lambdas on a persistent
             // service object; they need no explicit teardown for the demo's lifetime.
+            GameSignals.ItemLooted -= OnItemLooted;
         }
 
         private void OnTalked(DialogSpeaker speaker)
