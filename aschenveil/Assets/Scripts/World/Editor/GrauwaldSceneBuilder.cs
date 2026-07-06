@@ -42,6 +42,9 @@ namespace Ashenveil.World.Editor
         private static readonly Vector3 VillageCenter = new Vector3(0f, 0f, 0f);
         private static readonly Vector3 CrystalPos = new Vector3(20f, 0f, 95f);
         private static readonly Vector3 BossArenaPos = new Vector3(-12f, 0f, 140f);
+        private static readonly float GothicDesaturate = 0.55f;
+        private static readonly float GothicDarken = 0.45f;
+        private static Terrain _activeTerrain;
 
         [MenuItem("Ashenveil/Build Grauwald Scene")]
         public static void BuildGrauwaldScene()
@@ -100,8 +103,8 @@ namespace Ashenveil.World.Editor
             var sunGo = new GameObject("Directional Light (Sun)");
             var sun = sunGo.AddComponent<Light>();
             sun.type = LightType.Directional;
-            sun.color = new Color(1f, 0.86f, 0.66f);
-            sun.intensity = 1.15f;
+            sun.color = new Color(1f, 0.82f, 0.62f);
+            sun.intensity = 0.95f;
             sun.shadows = LightShadows.Soft;
             sun.shadowStrength = 0.85f;
             sunGo.transform.rotation = Quaternion.Euler(24f, 40f, 0f);
@@ -116,8 +119,8 @@ namespace Ashenveil.World.Editor
             // needs aerial perspective; it stays subtle so the near forest reads clearly).
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.ExponentialSquared;
-            RenderSettings.fogColor = new Color(0.62f, 0.66f, 0.70f);
-            RenderSettings.fogDensity = 0.008f;
+            RenderSettings.fogColor = new Color(0.42f, 0.45f, 0.48f);
+            RenderSettings.fogDensity = 0.014f;
 
             BuildPostProcessing();
         }
@@ -139,11 +142,11 @@ namespace Ashenveil.World.Editor
             // Moody grade: slight under-exposure, more contrast, desaturated, warm/cool split.
             var color = profile.Add<ColorAdjustments>(true);
             color.postExposure.overrideState = true;
-            color.postExposure.value = -0.2f;
+            color.postExposure.value = -0.5f;
             color.contrast.overrideState = true;
             color.contrast.value = 18f;
             color.saturation.overrideState = true;
-            color.saturation.value = -14f;
+            color.saturation.value = -28f;
             color.colorFilter.overrideState = true;
             color.colorFilter.value = new Color(0.94f, 0.93f, 0.86f);
 
@@ -182,31 +185,159 @@ namespace Ashenveil.World.Editor
 
         private static Transform BuildGround()
         {
-            var ground = GameObject.CreatePrimitive(PrimitiveType.Plane);
-            ground.name = "Ground";
-            ground.transform.localScale = new Vector3(40f, 1f, 40f); // 400x400 m
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"))
+            var data = new TerrainData
             {
-                color = new Color(0.5f, 0.55f, 0.45f)
+                heightmapResolution = 513,
+                size = new Vector3(400f, 12f, 400f)
             };
-            mat.SetFloat("_Smoothness", 0.03f);
-            mat.SetFloat("_Metallic", 0f);
 
-            // Tiling forest-floor texture from the Viking Village terrain set.
-            var grass = AssetDatabase.LoadAssetAtPath<Texture2D>(
-                "Assets/Viking Village/Textures/Terrain/terrain_grass_01_a.tif");
-            if (grass != null)
-            {
-                mat.SetTexture("_BaseMap", grass);
-                mat.SetTextureScale("_BaseMap", new Vector2(60f, 60f)); // ~6.7 m per tile
-                mat.color = new Color(0.7f, 0.72f, 0.62f);
-            }
+            data.SetHeights(0, 0, BuildTerrainHeights(data.heightmapResolution, data.size));
+            data.terrainLayers = BuildTerrainLayers();
 
-            AssetDatabase.CreateAsset(mat, "Assets/Settings/GroundMaterial.asset");
-            ground.GetComponent<MeshRenderer>().sharedMaterial = mat;
+            var ground = Terrain.CreateTerrainGameObject(data);
+            ground.name = "Ground";
+            ground.transform.position = new Vector3(-200f, 0f, -200f);
             ground.isStatic = true;
             ground.tag = "Untagged";
+
+            var terrain = ground.GetComponent<Terrain>();
+            terrain.materialTemplate = FindProjectTerrainMaterial();
+
+            data.SetAlphamaps(0, 0, BuildTerrainAlphamaps(data));
+            terrain.Flush();
+            _activeTerrain = Terrain.activeTerrain != null ? Terrain.activeTerrain : terrain;
             return ground.transform;
+        }
+
+        private static float[,] BuildTerrainHeights(int resolution, Vector3 terrainSize)
+        {
+            var heights = new float[resolution, resolution];
+            for (int y = 0; y < resolution; y++)
+            {
+                float nz = y / (float)(resolution - 1);
+                float worldZ = nz * terrainSize.z - terrainSize.z * 0.5f;
+                for (int x = 0; x < resolution; x++)
+                {
+                    float nx = x / (float)(resolution - 1);
+                    float worldX = nx * terrainSize.x - terrainSize.x * 0.5f;
+
+                    float broad = Mathf.PerlinNoise(worldX * 0.0085f + 17.3f, worldZ * 0.0085f + 91.7f);
+                    float mid = Mathf.PerlinNoise(worldX * 0.021f + 141.9f, worldZ * 0.021f + 33.4f);
+                    float fine = Mathf.PerlinNoise(worldX * 0.047f + 5.8f, worldZ * 0.047f + 211.2f);
+                    float rise = Mathf.Pow(Mathf.PerlinNoise(worldX * 0.012f + 311.5f, worldZ * 0.012f + 18.6f), 3f);
+                    float height = broad * 0.18f + mid * 0.10f + fine * 0.04f + rise * 0.35f;
+                    height = Mathf.Clamp(height, 0.02f, 0.68f);
+
+                    height = FlattenGameplayAnchor(height, worldX, worldZ, VillageCenter, 30f);
+                    height = FlattenGameplayAnchor(height, worldX, worldZ, PlayerStart, 30f);
+                    height = FlattenGameplayAnchor(height, worldX, worldZ, CrystalPos, 30f);
+                    height = FlattenGameplayAnchor(height, worldX, worldZ, BossArenaPos, 30f);
+                    heights[y, x] = height;
+                }
+            }
+
+            return heights;
+        }
+
+        private static float FlattenGameplayAnchor(float height, float worldX, float worldZ, Vector3 anchor, float radius)
+        {
+            float dist = Vector2.Distance(new Vector2(worldX, worldZ), new Vector2(anchor.x, anchor.z));
+            if (dist >= radius)
+            {
+                return height;
+            }
+
+            float t = Mathf.SmoothStep(0f, 1f, dist / radius);
+            return Mathf.Lerp(0.15f, height, t);
+        }
+
+        private static TerrainLayer[] BuildTerrainLayers()
+        {
+            return new[]
+            {
+                MakeTerrainLayer("Assets/Viking Village/Textures/Terrain/terrain_grass_01_a.tif"),
+                MakeTerrainLayer("Assets/Viking Village/Textures/Terrain/terrain_mudslide_01_a.tif"),
+                MakeTerrainLayer("Assets/Viking Village/Textures/Terrain/terrain_wetmud_01_a.tif")
+            };
+        }
+
+        private static TerrainLayer MakeTerrainLayer(string texturePath)
+        {
+            var layer = new TerrainLayer
+            {
+                diffuseTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(texturePath),
+                tileSize = new Vector2(8f, 8f)
+            };
+            return layer;
+        }
+
+        private static float[,,] BuildTerrainAlphamaps(TerrainData data)
+        {
+            int width = data.alphamapWidth;
+            int height = data.alphamapHeight;
+            var maps = new float[width, height, 3];
+            for (int y = 0; y < height; y++)
+            {
+                float nz = y / (float)(height - 1);
+                for (int x = 0; x < width; x++)
+                {
+                    float nx = x / (float)(width - 1);
+                    float steepness = data.GetSteepness(nx, nz);
+                    float terrainHeight = data.GetInterpolatedHeight(nx, nz);
+
+                    float dirt = Mathf.InverseLerp(8f, 24f, steepness);
+                    float mud = Mathf.InverseLerp(18f, 34f, steepness);
+                    float lowGrass = Mathf.InverseLerp(5.5f, 1.5f, terrainHeight);
+                    float grass = Mathf.Clamp01(1f - dirt * 0.75f - mud * 0.65f + lowGrass * 0.25f);
+                    dirt = Mathf.Clamp01(dirt * (1f - mud * 0.55f));
+                    mud = Mathf.Clamp01(mud);
+
+                    float total = grass + dirt + mud;
+                    if (total < 0.001f)
+                    {
+                        grass = 1f;
+                        total = 1f;
+                    }
+
+                    maps[x, y, 0] = grass / total;
+                    maps[x, y, 1] = dirt / total;
+                    maps[x, y, 2] = mud / total;
+                }
+            }
+
+            return maps;
+        }
+
+        private static Material FindProjectTerrainMaterial()
+        {
+            string[] guids = AssetDatabase.FindAssets("t:Material Terrain", new[] { "Assets" });
+            for (int i = 0; i < guids.Length; i++)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guids[i]);
+                var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+                if (mat != null && mat.shader != null && mat.shader.name.Contains("Terrain"))
+                {
+                    return mat;
+                }
+            }
+
+            return null;
+        }
+
+        private static Vector3 GroundedPosition(Vector3 position)
+        {
+            return new Vector3(position.x, SampleGroundHeight(position.x, position.z) + position.y, position.z);
+        }
+
+        private static float SampleGroundHeight(float x, float z)
+        {
+            Terrain terrain = _activeTerrain != null ? _activeTerrain : Terrain.activeTerrain;
+            if (terrain == null)
+            {
+                return 0f;
+            }
+
+            return terrain.SampleHeight(new Vector3(x, 0f, z)) + terrain.transform.position.y;
         }
 
         // ---------------------------------------------------------------- forest
@@ -265,6 +396,18 @@ namespace Ashenveil.World.Editor
                 float maxHeight = tallPine ? 13f : 11f;
                 float targetHeight = RandomRange(rng, minHeight, maxHeight);
                 GameObject tree = InstantiateFittedKenneyPrefab(prefab, forest.transform, pos, yaw, targetHeight, 1f, out float fittedHeight);
+                foreach (Renderer r in tree.GetComponentsInChildren<Renderer>(true))
+                {
+                    Material[] mats = r.sharedMaterials;
+                    for (int i = 0; i < mats.Length; i++)
+                    {
+                        if (mats[i] != null)
+                        {
+                            GothicTint(mats[i]);
+                        }
+                    }
+                }
+
                 AddTrunkCollider(tree, fittedHeight);
                 placed++;
             }
@@ -324,6 +467,18 @@ namespace Ashenveil.World.Editor
                 float targetHeight = RandomUndergrowthHeight(prefab.name, rng);
                 float extraScale = RandomRange(rng, 0.8f, 1.5f);
                 GameObject prop = InstantiateFittedKenneyPrefab(prefab, undergrowth.transform, pos, yaw, targetHeight, extraScale, out _);
+                foreach (Renderer r in prop.GetComponentsInChildren<Renderer>(true))
+                {
+                    Material[] mats = r.sharedMaterials;
+                    for (int i = 0; i < mats.Length; i++)
+                    {
+                        if (mats[i] != null)
+                        {
+                            GothicTint(mats[i]);
+                        }
+                    }
+                }
+
                 if (ShouldAddUndergrowthCollider(prefab.name))
                 {
                     AddBoundsCollider(prop);
@@ -379,7 +534,7 @@ namespace Ashenveil.World.Editor
             out float fittedHeight)
         {
             var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
-            instance.transform.position = position;
+            instance.transform.position = GroundedPosition(position);
             instance.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
             fittedHeight = targetHeight;
 
@@ -455,6 +610,30 @@ namespace Ashenveil.World.Editor
             return name.IndexOf("stump", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
                 name.IndexOf("log", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
                 name.IndexOf("rock", System.StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static void GothicTint(Material m)
+        {
+            Color original = Color.white;
+            if (m.HasProperty("_BaseColor"))
+            {
+                original = m.GetColor("_BaseColor");
+            }
+            else if (m.HasProperty("_Color"))
+            {
+                original = m.GetColor("_Color");
+            }
+
+            float luminance = original.r * 0.2126f + original.g * 0.7152f + original.b * 0.0722f;
+            var grayscale = new Color(luminance, luminance, luminance, original.a);
+            Color tinted = Color.Lerp(original, grayscale, GothicDesaturate) * GothicDarken;
+            tinted.a = original.a;
+
+            m.SetColor("_BaseColor", tinted);
+            if (m.HasProperty("_Smoothness"))
+            {
+                m.SetFloat("_Smoothness", 0.05f);
+            }
         }
 
         private static Material MakeMat(string path, Color color, float smoothness)
@@ -584,7 +763,7 @@ namespace Ashenveil.World.Editor
                 if (prefab != null)
                 {
                     var house = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
-                    house.transform.position = pos;
+                    house.transform.position = GroundedPosition(pos);
                     house.transform.rotation = Quaternion.LookRotation(VillageCenter - pos);
                 }
                 else
@@ -592,7 +771,7 @@ namespace Ashenveil.World.Editor
                     // Fallback block so the village exists even if the pack is missing.
                     var block = GameObject.CreatePrimitive(PrimitiveType.Cube);
                     block.transform.SetParent(parent);
-                    block.transform.position = pos + Vector3.up * 2f;
+                    block.transform.position = GroundedPosition(pos + Vector3.up * 2f);
                     block.transform.localScale = new Vector3(6f, 4f, 6f);
                 }
             }
@@ -618,7 +797,7 @@ namespace Ashenveil.World.Editor
             // Orange fire light for atmosphere.
             var fire = new GameObject("FireGlow");
             fire.transform.SetParent(parent);
-            fire.transform.position = VillageCenter + Vector3.up * 4f;
+            fire.transform.position = GroundedPosition(VillageCenter + Vector3.up * 4f);
             var light = fire.AddComponent<Light>();
             light.type = LightType.Point;
             light.color = new Color(1f, 0.45f, 0.15f);
@@ -662,7 +841,7 @@ namespace Ashenveil.World.Editor
 
             var root = new GameObject("Player");
             root.tag = "Player";
-            root.transform.position = PlayerStart;
+            root.transform.position = GroundedPosition(PlayerStart);
 
             var cc = root.AddComponent<CharacterController>();
             cc.height = 1.8f;
@@ -770,7 +949,7 @@ namespace Ashenveil.World.Editor
         private static AetherCrystal BuildCrystal(AetherPool pool)
         {
             var go = new GameObject("AetherCrystal");
-            go.transform.position = CrystalPos;
+            go.transform.position = GroundedPosition(CrystalPos);
             go.transform.rotation = Quaternion.Euler(0f, 30f, 0f);
 
             var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"))
@@ -825,7 +1004,7 @@ namespace Ashenveil.World.Editor
         private static (MutatedWolfBossController, BossArenaTrigger) BuildBoss(PlayerRig rig)
         {
             var bossGo = new GameObject("MutatedWolf");
-            bossGo.transform.position = BossArenaPos + Vector3.up * 0.2f;
+            bossGo.transform.position = GroundedPosition(BossArenaPos + Vector3.up * 0.2f);
             var cc = bossGo.AddComponent<CharacterController>();
             cc.height = 1.4f;
             cc.radius = 0.6f;
@@ -848,7 +1027,7 @@ namespace Ashenveil.World.Editor
             var boss = bossGo.AddComponent<MutatedWolfBossController>();
 
             var arenaGo = new GameObject("BossArena");
-            arenaGo.transform.position = BossArenaPos;
+            arenaGo.transform.position = GroundedPosition(BossArenaPos);
             var trigger = arenaGo.AddComponent<SphereCollider>();
             trigger.isTrigger = true;
             trigger.radius = 14f;
@@ -916,7 +1095,7 @@ namespace Ashenveil.World.Editor
         private static void SpawnHerd(string name, WildlifeSpecies species, WildlifeAgent agentPrefab, Transform threat, Vector3 center, int count)
         {
             var spawnerGo = new GameObject(name);
-            spawnerGo.transform.position = center;
+            spawnerGo.transform.position = GroundedPosition(center);
             var spawner = spawnerGo.AddComponent<WildlifeSpawner>();
             SetRef(spawner, "_species", species);
             SetRef(spawner, "_agentPrefab", agentPrefab);
@@ -928,7 +1107,7 @@ namespace Ashenveil.World.Editor
             {
                 var p = new GameObject("Spawn" + i);
                 p.transform.SetParent(spawnerGo.transform);
-                p.transform.position = center + new Vector3(i * 4f - count * 2f, 0f, 0f);
+                p.transform.position = GroundedPosition(center + new Vector3(i * 4f - count * 2f, 0f, 0f));
                 points.Add(p.transform);
             }
 
@@ -1042,7 +1221,7 @@ namespace Ashenveil.World.Editor
             var go = new GameObject("Pickup_" + name);
             go.name = "Pickup_" + name;
             go.transform.SetParent(parent, false);
-            go.transform.position = pos;
+            go.transform.position = GroundedPosition(pos);
 
             var trigger = go.AddComponent<SphereCollider>();
             trigger.isTrigger = true;
@@ -1092,12 +1271,15 @@ namespace Ashenveil.World.Editor
             var speakers = new List<Object>();
             var vendors = new List<Object>();
 
-            DialogSpeaker healer = BuildSpeaker("Heilerin", content.HealerDialog, VillageCenter + new Vector3(6f, 0f, 4f));
-            DialogSpeaker smith = BuildSpeaker("Schmied", content.SmithDialog, VillageCenter + new Vector3(-6f, 0f, 4f));
+            DialogSpeaker healer = BuildSpeaker("Heilerin", content.HealerDialog, VillageCenter + new Vector3(6f, 0f, 4f),
+                new Color(0.75f, 0.9f, 0.8f));
+            DialogSpeaker smith = BuildSpeaker("Schmied", content.SmithDialog, VillageCenter + new Vector3(-6f, 0f, 4f),
+                new Color(0.7f, 0.55f, 0.5f), 1.08f);
             speakers.Add(healer);
             speakers.Add(smith);
 
-            VendorController vendor = BuildVendor(content, rig.Inventory, VillageCenter + new Vector3(0f, 0f, 8f));
+            VendorController vendor = BuildVendor(content, rig.Inventory, VillageCenter + new Vector3(0f, 0f, 8f),
+                new Color(0.7f, 0.75f, 0.9f));
             vendors.Add(vendor);
 
             var servicesGo = new GameObject("GameServices");
@@ -1128,10 +1310,10 @@ namespace Ashenveil.World.Editor
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static GameObject BuildNpcRoot(string name, Vector3 pos, Vector3 facePos)
+        private static GameObject BuildNpcRoot(string name, Vector3 pos, Vector3 facePos, Color? tint = null, float bodyScale = 1f)
         {
             var go = new GameObject(name);
-            go.transform.position = pos;
+            go.transform.position = GroundedPosition(pos);
             go.transform.rotation = Quaternion.LookRotation(Flatten(facePos - pos));
 
             // Interaction + physical presence collider on the root.
@@ -1141,22 +1323,23 @@ namespace Ashenveil.World.Editor
             col.center = new Vector3(0f, 0.9f, 0f);
 
             // Rigged body idling (reuses the player's locomotion controller at Speed 0).
-            InstantiateCharacter(go.transform, CharacterAnimatorFactory.LoadLocomotionController(), out _);
+            GameObject body = InstantiateCharacter(go.transform, CharacterAnimatorFactory.LoadLocomotionController(), out _, tint);
+            body.transform.localScale = body.transform.localScale * bodyScale;
             return go;
         }
 
-        private static DialogSpeaker BuildSpeaker(string npcName, DialogGraph graph, Vector3 pos)
+        private static DialogSpeaker BuildSpeaker(string npcName, DialogGraph graph, Vector3 pos, Color? tint = null, float bodyScale = 1f)
         {
-            GameObject go = BuildNpcRoot("NPC_" + npcName, pos, VillageCenter);
+            GameObject go = BuildNpcRoot("NPC_" + npcName, pos, VillageCenter, tint, bodyScale);
             var speaker = go.AddComponent<DialogSpeaker>();
             SetRef(speaker, "_dialogGraph", graph);
             SetString(speaker, "_npcDisplayName", npcName);
             return speaker;
         }
 
-        private static VendorController BuildVendor(GrauwaldContentFactory.Content content, PlayerInventory inventory, Vector3 pos)
+        private static VendorController BuildVendor(GrauwaldContentFactory.Content content, PlayerInventory inventory, Vector3 pos, Color? tint = null)
         {
-            GameObject go = BuildNpcRoot("NPC_Vendor", pos, VillageCenter);
+            GameObject go = BuildNpcRoot("NPC_Vendor", pos, VillageCenter, tint);
             var vendor = go.AddComponent<VendorController>();
             SetRef(vendor, "_vendorDefinition", content.Vendor);
             SetRef(vendor, "_playerInventory", inventory);
@@ -1246,6 +1429,53 @@ namespace Ashenveil.World.Editor
             }
         }
 
+        private static void ApplyCharacterTint(GameObject root, Color tint)
+        {
+            foreach (Renderer r in root.GetComponentsInChildren<Renderer>(true))
+            {
+                Material[] src = r.sharedMaterials;
+                var dst = new Material[src.Length];
+                for (int i = 0; i < src.Length; i++)
+                {
+                    Material m = src[i];
+                    if (m == null)
+                    {
+                        continue;
+                    }
+
+                    var clone = new Material(m);
+                    Color baseColor = Color.white;
+                    if (clone.HasProperty("_BaseColor"))
+                    {
+                        baseColor = clone.GetColor("_BaseColor");
+                    }
+                    else if (clone.HasProperty("_Color"))
+                    {
+                        baseColor = clone.GetColor("_Color");
+                    }
+                    var tinted = new Color(
+                        baseColor.r * tint.r,
+                        baseColor.g * tint.g,
+                        baseColor.b * tint.b,
+                        baseColor.a);
+
+                    if (clone.HasProperty("_BaseColor"))
+                    {
+                        clone.SetColor("_BaseColor", tinted);
+                    }
+
+                    if (clone.HasProperty("_Color"))
+                    {
+                        clone.SetColor("_Color", tinted);
+                    }
+
+                    dst[i] = clone;
+                }
+
+                r.sharedMaterials = dst;
+            }
+        }
+
         private const string CharacterPrefab =
             "Assets/Blink/Art/Characters/Stylized/Humans/Prefabs_Humans/HumanMale_Character_Free.prefab";
 
@@ -1254,7 +1484,7 @@ namespace Ashenveil.World.Editor
         /// and returns the body plus its Animator. Falls back to a capsule if the prefab
         /// is missing so scene builds never break.
         /// </summary>
-        private static GameObject InstantiateCharacter(Transform parent, AnimatorController controller, out Animator animator)
+        private static GameObject InstantiateCharacter(Transform parent, AnimatorController controller, out Animator animator, Color? tint = null)
         {
             GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(CharacterPrefab);
             if (prefab == null)
@@ -1265,6 +1495,11 @@ namespace Ashenveil.World.Editor
                 capsule.transform.localPosition = new Vector3(0f, 0.9f, 0f);
                 Object.DestroyImmediate(capsule.GetComponent<Collider>());
                 animator = null;
+                if (tint.HasValue)
+                {
+                    ApplyCharacterTint(capsule, tint.Value);
+                }
+
                 return capsule;
             }
 
@@ -1286,6 +1521,11 @@ namespace Ashenveil.World.Editor
             }
 
             UrpFixMaterials(body);
+            if (tint.HasValue)
+            {
+                ApplyCharacterTint(body, tint.Value);
+            }
+
             return body;
         }
 

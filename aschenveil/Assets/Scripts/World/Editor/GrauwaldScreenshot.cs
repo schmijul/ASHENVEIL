@@ -45,7 +45,7 @@ namespace Ashenveil.World.Editor
             // Close-up of the healer NPC (at village center + (6,0,4)).
             Shot(cam, outDir, "07_npc_closeup", new Vector3(6f, 1.6f, 1f), new Vector3(6f, 1.2f, 4f));
             Shot(cam, outDir, "08_deer", new Vector3(18f, 1.6f, -100f), new Vector3(18f, 0.8f, -95f));
-            Shot(cam, outDir, "09_boss", new Vector3(-12f, 1.8f, 134f), new Vector3(-12f, 0.8f, 140f));
+            Shot(cam, outDir, "09_boss", new Vector3(-12f, 2.2f, 130f), new Vector3(-12f, 1.2f, 140f));
 
             Debug.Log("[GrauwaldScreenshot] Wrote shots to " + outDir);
         }
@@ -57,6 +57,16 @@ namespace Ashenveil.World.Editor
 
         private static void Shot(Camera cam, string dir, string name, Vector3 pos, Vector3 lookAt)
         {
+            // Raise camera + target above the terrain surface so hills don't bury the shot.
+            var terrain = UnityEngine.Terrain.activeTerrain;
+            if (terrain != null)
+            {
+                float gp = terrain.SampleHeight(pos) + terrain.transform.position.y;
+                float gl = terrain.SampleHeight(lookAt) + terrain.transform.position.y;
+                pos.y = gp + pos.y;      // treat the given Y as height ABOVE ground
+                lookAt.y = gl + lookAt.y;
+            }
+
             cam.transform.position = pos;
             cam.transform.rotation = Quaternion.LookRotation((lookAt - pos).normalized, Vector3.up);
 
