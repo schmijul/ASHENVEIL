@@ -119,8 +119,10 @@ namespace Ashenveil.World.Editor
             ground.transform.localScale = new Vector3(40f, 1f, 40f); // 400x400 m
             var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"))
             {
-                color = new Color(0.20f, 0.24f, 0.15f)
+                color = new Color(0.16f, 0.20f, 0.11f)
             };
+            mat.SetFloat("_Smoothness", 0.03f);
+            mat.SetFloat("_Metallic", 0f);
             AssetDatabase.CreateAsset(mat, "Assets/Settings/GroundMaterial.asset");
             ground.GetComponent<MeshRenderer>().sharedMaterial = mat;
             ground.isStatic = true;
@@ -143,6 +145,9 @@ namespace Ashenveil.World.Editor
             var rng = new System.Random(1337);
             int placed = 0;
 
+            Material bark = MakeMat("Assets/Settings/TreeBark.asset", new Color(0.22f, 0.15f, 0.09f), 0.15f);
+            Material leaf = MakeMat("Assets/Settings/TreeLeaf.asset", new Color(0.13f, 0.26f, 0.10f), 0.1f);
+
             for (int i = 0; i < 900; i++)
             {
                 float x = (float)(rng.NextDouble() * 360.0 - 180.0);
@@ -158,10 +163,15 @@ namespace Ashenveil.World.Editor
                 GameObject prefab = trees[rng.Next(trees.Count)];
                 var tree = (GameObject)PrefabUtility.InstantiatePrefab(prefab, forest.transform);
                 tree.transform.position = pos;
-                tree.transform.rotation = Quaternion.Euler(0f, (float)(rng.NextDouble() * 360.0), 0f);
-                float s = 0.9f + (float)rng.NextDouble() * 0.5f;
+                // Preserve the importer's stand-up rotation and unit-compensation scale;
+                // compose a random yaw / size variance on top instead of overwriting them.
+                float yaw = (float)(rng.NextDouble() * 360.0);
+                tree.transform.rotation = Quaternion.Euler(0f, yaw, 0f) * tree.transform.rotation;
+                float baseScale = tree.transform.localScale.x;
+                float s = baseScale * (0.85f + (float)rng.NextDouble() * 0.5f);
                 tree.transform.localScale = new Vector3(s, s, s);
-                AddTrunkCollider(tree);
+                AddTrunkCollider(tree, baseScale);
+                ApplyTreeMaterials(tree, bark, leaf);
                 placed++;
             }
 
@@ -187,12 +197,52 @@ namespace Ashenveil.World.Editor
             return list;
         }
 
-        private static void AddTrunkCollider(GameObject tree)
+        private static Material MakeMat(string path, Color color, float smoothness)
         {
+            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = color };
+            mat.SetFloat("_Smoothness", smoothness);
+            mat.SetFloat("_Metallic", 0f);
+            var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (existing == null)
+            {
+                AssetDatabase.CreateAsset(mat, path);
+                return mat;
+            }
+
+            existing.CopyPropertiesFromMaterial(mat);
+            return existing;
+        }
+
+        private static void ApplyTreeMaterials(GameObject tree, Material bark, Material leaf)
+        {
+            foreach (MeshFilter mf in tree.GetComponentsInChildren<MeshFilter>())
+            {
+                var r = mf.GetComponent<Renderer>();
+                if (r == null)
+                {
+                    continue;
+                }
+
+                int slots = mf.sharedMesh != null ? mf.sharedMesh.subMeshCount : 1;
+                var mats = new Material[Mathf.Max(1, slots)];
+                for (int i = 0; i < mats.Length; i++)
+                {
+                    mats[i] = i == 0 ? bark : leaf;
+                }
+
+                r.sharedMaterials = mats;
+            }
+        }
+
+        private static void AddTrunkCollider(GameObject tree, float baseScale)
+        {
+            // Collider lives on the scale-baseScale root, so express dimensions in local
+            // units (world metres / baseScale) to get a ~0.5 m trunk and ~10 m height.
+            float inv = baseScale > 0f ? 1f / baseScale : 1f;
             var col = tree.AddComponent<CapsuleCollider>();
-            col.radius = 0.4f;
-            col.height = 12f;
-            col.center = new Vector3(0f, 6f, 0f);
+            col.radius = 0.5f * inv;
+            col.height = 10f * inv;
+            col.center = new Vector3(0f, 5f * inv, 0f);
         }
 
         // ---------------------------------------------------------------- village
