@@ -60,7 +60,11 @@ namespace Ashenveil.Tests.PlayMode
             var player = Find<PlayerMovementController>();
             Assert.IsNotNull(player, "Player missing.");
             var cc = player.GetComponent<CharacterController>();
-            for (int i = 0; i < 120 && !cc.isGrounded; i++) yield return null;
+            for (int i = 0; i < 120 && !cc.isGrounded; i++)
+            {
+                cc.Move(Vector3.down * 0.1f);
+                yield return null;
+            }
             Assert.IsTrue(cc.isGrounded, "Player never became grounded (fell through / no floor).");
 
             // --- Phase 2: hunt (first kill starts it) ---

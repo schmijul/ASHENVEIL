@@ -34,7 +34,12 @@ namespace Ashenveil.Tests.PlayMode
             Assert.IsNotNull(cc, "Player has no CharacterController.");
             Assert.IsTrue(cc.enabled, "CharacterController disabled.");
 
-            for (int i = 0; i < 120 && !cc.isGrounded; i++) yield return null;
+            // Actively settle onto the ground (headless dt is tiny, so passive gravity is slow).
+            for (int i = 0; i < 120 && !cc.isGrounded; i++)
+            {
+                cc.Move(Vector3.down * 0.1f);
+                yield return null;
+            }
             Assert.IsTrue(cc.isGrounded, "Player never grounded (fell through / no floor).");
 
             // Physics: the controller must move the player a fixed distance — proves it is
