@@ -50,6 +50,7 @@ namespace Ashenveil.World.Editor
             GrauwaldContentFactory.Content content = GrauwaldContentFactory.Build();
 
             BuildLightingAndVolume();
+            new GameObject("AudioDirector").AddComponent<Ashenveil.Audio.AudioDirector>();
             Transform ground = BuildGround();
             BuildForest();
 
@@ -504,6 +505,9 @@ namespace Ashenveil.World.Editor
 
             // Aether shimmer particles rising from the crystal.
             VfxFactory.BuildAetherShimmer(go.transform, new Color(0.35f, 0.9f, 1f));
+
+            // Aether hum ambience localized to the crystal.
+            go.AddComponent<Ashenveil.Audio.AetherAmbienceZone>();
             return crystal;
         }
 
