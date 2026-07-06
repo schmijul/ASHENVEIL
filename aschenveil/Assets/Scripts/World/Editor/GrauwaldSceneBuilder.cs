@@ -10,6 +10,7 @@ using Ashenveil.Inventory;
 using Ashenveil.Player;
 using Ashenveil.Trade;
 using Ashenveil.UI;
+using Ashenveil.VFX;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -310,6 +311,23 @@ namespace Ashenveil.World.Editor
             light.color = new Color(1f, 0.45f, 0.15f);
             light.intensity = 6f;
             light.range = 45f;
+
+            // Fire + smoke + embers on each burning building.
+            foreach (Transform child in parent)
+            {
+                if (!child.name.StartsWith("pf_build") && !child.name.StartsWith("Cube"))
+                {
+                    continue;
+                }
+
+                Vector3 top = child.position + Vector3.up * 4f;
+                var fx = new GameObject("BurnFX");
+                fx.transform.SetParent(parent);
+                fx.transform.position = top;
+                VfxFactory.BuildFire(fx.transform);
+                VfxFactory.BuildSmoke(fx.transform);
+                VfxFactory.BuildEmbers(fx.transform);
+            }
         }
 
         // ---------------------------------------------------------------- player
@@ -392,6 +410,14 @@ namespace Ashenveil.World.Editor
             SetRef(glow, "_aetherPool", aetherPool);
             SetRef(glow, "_handLight", handLight);
 
+            // Aether spark particles on the hand.
+            GameObject handParticles = VfxFactory.BuildHandGlow(handGo.transform, new Color(0.4f, 0.9f, 1f));
+            var ps = handParticles.GetComponent<ParticleSystem>();
+            if (ps != null)
+            {
+                SetRef(glow, "_handParticles", ps);
+            }
+
             // Camera.
             var camGo = new GameObject("Main Camera");
             camGo.tag = "MainCamera";
@@ -447,6 +473,9 @@ namespace Ashenveil.World.Editor
 
             var crystal = go.AddComponent<AetherCrystal>();
             SetRef(crystal, "_aetherPool", pool);
+
+            // Aether shimmer particles rising from the crystal.
+            VfxFactory.BuildAetherShimmer(go.transform, new Color(0.35f, 0.9f, 1f));
             return crystal;
         }
 
