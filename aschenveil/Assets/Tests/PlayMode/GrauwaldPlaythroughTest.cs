@@ -43,6 +43,10 @@ namespace Ashenveil.Tests.PlayMode
         {
             SceneManager.LoadScene("Grauwald");
             yield return null;
+            // Simulate pressing "Spiel starten": hide the main menu and unpause.
+            var menu = Find<Ashenveil.UI.MainMenuController>();
+            if (menu != null) menu.Hide();
+            Time.timeScale = 1f;
             for (int i = 0; i < 30; i++) yield return null; // settle
 
             var director = Find<DemoDirector>();

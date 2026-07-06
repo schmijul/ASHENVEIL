@@ -651,6 +651,22 @@ namespace Ashenveil.World.Editor
             SetRef(interactor, "_movementController", rig.Movement);
             SetRef(interactor, "_hud", hud);
 
+            // Menus: main menu, pause (ESC), death/respawn.
+            var mainMenu = NewChild(uiRoot, "MainMenu").AddComponent<MainMenuController>();
+            var pauseMenu = NewChild(uiRoot, "PauseMenu").AddComponent<PauseMenuController>();
+            var deathScreen = NewChild(uiRoot, "DeathScreen").AddComponent<DeathScreenController>();
+
+            var pauseInput = rig.Root.AddComponent<PauseInput>();
+
+            var menuBoot = NewChild(uiRoot, "MenuBootstrapper").AddComponent<MenuBootstrapper>();
+            SetRef(menuBoot, "_mainMenu", mainMenu);
+            SetRef(menuBoot, "_pauseMenu", pauseMenu);
+            SetRef(menuBoot, "_pauseInput", pauseInput);
+
+            var gameOver = NewChild(uiRoot, "GameOver").AddComponent<GameOverController>();
+            SetRef(gameOver, "_vitals", rig.Vitals);
+            SetRef(gameOver, "_deathScreen", deathScreen);
+
             return new UiRefs
             {
                 Hud = hud, Fade = fade, End = end, Dialog = dialog,

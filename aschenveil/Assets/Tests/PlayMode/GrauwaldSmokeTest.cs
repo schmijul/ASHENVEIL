@@ -46,6 +46,9 @@ namespace Ashenveil.Tests.PlayMode
         {
             SceneManager.LoadScene("Grauwald");
             yield return null; // let Awake/Start run
+            var menu = Object.FindFirstObjectByType<Ashenveil.UI.MainMenuController>();
+            if (menu != null) menu.Hide();
+            Time.timeScale = 1f;
 
             // Run ~2 seconds of gameplay.
             for (int i = 0; i < 120; i++)
