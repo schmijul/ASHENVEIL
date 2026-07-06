@@ -94,28 +94,86 @@ namespace Ashenveil.World.Editor
 
         private static void BuildLightingAndVolume()
         {
+            // Low, warm sun — golden-hour rake for long soft shadows and mood.
             var sunGo = new GameObject("Directional Light (Sun)");
             var sun = sunGo.AddComponent<Light>();
             sun.type = LightType.Directional;
-            sun.color = new Color(1f, 0.96f, 0.86f);
-            sun.intensity = 1.5f;
+            sun.color = new Color(1f, 0.86f, 0.66f);
+            sun.intensity = 1.15f;
             sun.shadows = LightShadows.Soft;
-            sunGo.transform.rotation = Quaternion.Euler(48f, -30f, 0f);
+            sun.shadowStrength = 0.85f;
+            sunGo.transform.rotation = Quaternion.Euler(24f, 40f, 0f);
 
+            // Cool, low ambient so the warm sun reads and shadows stay moody.
             RenderSettings.ambientMode = AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(0.42f, 0.48f, 0.55f);
-            RenderSettings.ambientEquatorColor = new Color(0.30f, 0.33f, 0.30f);
-            RenderSettings.ambientGroundColor = new Color(0.12f, 0.12f, 0.10f);
-            // GDD: KEIN Nebel im Wald.
-            RenderSettings.fog = false;
+            RenderSettings.ambientSkyColor = new Color(0.30f, 0.36f, 0.46f);
+            RenderSettings.ambientEquatorColor = new Color(0.22f, 0.24f, 0.22f);
+            RenderSettings.ambientGroundColor = new Color(0.08f, 0.08f, 0.07f);
 
-            // Global post volume (URP). ACES/TAA are project-wide; the volume adds grade.
+            // Atmospheric distance fog for depth (overrides the old "no fog" — the look
+            // needs aerial perspective; it stays subtle so the near forest reads clearly).
+            RenderSettings.fog = true;
+            RenderSettings.fogMode = FogMode.ExponentialSquared;
+            RenderSettings.fogColor = new Color(0.62f, 0.66f, 0.70f);
+            RenderSettings.fogDensity = 0.008f;
+
+            BuildPostProcessing();
+        }
+
+        private static void BuildPostProcessing()
+        {
             var volumeGo = new GameObject("Global Volume");
             var volume = volumeGo.AddComponent<Volume>();
             volume.isGlobal = true;
+
             var profile = ScriptableObject.CreateInstance<VolumeProfile>();
             AssetDatabase.CreateAsset(profile, "Assets/Settings/GrauwaldVolumeProfile.asset");
+
+            // ACES tonemapping — filmic contrast/rolloff, the core "not-flat" change.
+            var tonemap = profile.Add<Tonemapping>(true);
+            tonemap.mode.overrideState = true;
+            tonemap.mode.value = TonemappingMode.ACES;
+
+            // Moody grade: slight under-exposure, more contrast, desaturated, warm/cool split.
+            var color = profile.Add<ColorAdjustments>(true);
+            color.postExposure.overrideState = true;
+            color.postExposure.value = -0.2f;
+            color.contrast.overrideState = true;
+            color.contrast.value = 18f;
+            color.saturation.overrideState = true;
+            color.saturation.value = -14f;
+            color.colorFilter.overrideState = true;
+            color.colorFilter.value = new Color(0.94f, 0.93f, 0.86f);
+
+            var wb = profile.Add<WhiteBalance>(true);
+            wb.temperature.overrideState = true;
+            wb.temperature.value = 8f; // slightly warm
+
+            // Cool shadows, warm highlights — classic cinematic split-tone.
+            var smh = profile.Add<ShadowsMidtonesHighlights>(true);
+            smh.shadows.overrideState = true;
+            smh.shadows.value = new Vector4(0.90f, 0.97f, 1.08f, 0f);
+            smh.highlights.overrideState = true;
+            smh.highlights.value = new Vector4(1.06f, 1.0f, 0.90f, 0f);
+
+            // Bloom to make the aether crystal and fire glow.
+            var bloom = profile.Add<Bloom>(true);
+            bloom.intensity.overrideState = true;
+            bloom.intensity.value = 0.9f;
+            bloom.threshold.overrideState = true;
+            bloom.threshold.value = 0.9f;
+            bloom.tint.overrideState = true;
+            bloom.tint.value = new Color(0.95f, 0.95f, 1f);
+
+            // Vignette to frame and darken edges.
+            var vignette = profile.Add<Vignette>(true);
+            vignette.intensity.overrideState = true;
+            vignette.intensity.value = 0.32f;
+            vignette.smoothness.overrideState = true;
+            vignette.smoothness.value = 0.5f;
+
             volume.sharedProfile = profile;
+            EditorUtility.SetDirty(profile);
         }
 
         // ---------------------------------------------------------------- ground

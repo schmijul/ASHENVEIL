@@ -32,6 +32,8 @@ namespace Ashenveil.World.Editor
             cam.fieldOfView = 62f;
             cam.farClipPlane = 600f;
             cam.clearFlags = CameraClearFlags.Skybox;
+            var camData = camGo.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+            camData.renderPostProcessing = true;
 
             // Phase 1: waking deep in the forest, looking north toward the distant village.
             Shot(cam, outDir, "01_wake_in_forest", new Vector3(0f, 2.0f, -130f), new Vector3(0f, 1.5f, -110f));
