@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f1da9806076fae01b0e4506f03a8a29, type: 3}
+  m_Name: vendor_trader
+  m_EditorClassIdentifier: Ashenveil.Runtime::Ashenveil.Trade.VendorDefinition
+  _vendorName: "H\xE4ndlerin Ingrid"
+  _goldReserve: 300
+  _buybackMultiplier: 0.5
+  _stock:
+  - _item: {fileID: 11400000, guid: de262c2f5f4beef66aac3b181829f582, type: 2}
+    _quantity: 5
+    _priceMultiplier: 1

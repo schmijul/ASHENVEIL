@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c6e1b1b53cf4f2295bda806d6ff95c87, type: 3}
+  m_Name: Player_InputConfig
+  m_EditorClassIdentifier: Ashenveil.Runtime::Ashenveil.Player.PlayerInputConfig
+  _walkSpeed: 1.8
+  _runSpeed: 4.2
+  _sprintSpeed: 6.2
+  _acceleration: 18
+  _rotationSmoothing: 12
+  _jumpHeight: 1.1
+  _gravity: -24
+  _groundedGravity: -2
+  _coyoteTime: 0.12
+  _dodgeDuration: 0.45
+  _dodgeSpeed: 8
+  _dodgeIFrameStart: 0.08
+  _dodgeIFrameEnd: 0.28
+  _maxStamina: 100
+  _sprintDrainPerSecond: 18
+  _dodgeCost: 25
+  _lightAttackCost: 12
+  _heavyAttackCost: 28
+  _regenPerSecond: 22
+  _regenDelay: 0.8
+  _minimumSprintStamina: 0

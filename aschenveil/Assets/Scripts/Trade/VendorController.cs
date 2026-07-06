@@ -23,6 +23,11 @@ namespace Ashenveil.Trade
 
         public string InteractionPrompt => "Handeln (E)";
 
+        /// <summary>
+        /// The vendor's definition, exposed so UI can enumerate purchasable stock.
+        /// </summary>
+        public VendorDefinition Definition => _vendorDefinition;
+
         public TradeModel ActiveSession { get; private set; }
 
         private void Awake()

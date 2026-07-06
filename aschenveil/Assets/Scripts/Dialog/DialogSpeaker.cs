@@ -19,12 +19,21 @@ namespace Ashenveil.Dialog
 
         public string NpcDisplayName => _npcDisplayName;
 
+        /// <summary>
+        /// Raised when the player talks to this speaker. A scene-level dialog service
+        /// listens, builds a <see cref="DialogRunnerModel"/>, and opens the dialog UI.
+        /// </summary>
+        public event System.Action<DialogSpeaker> Talked;
+
         public void Interact(PlayerContext playerContext)
         {
             if (_dialogGraph == null)
             {
                 Debug.LogWarning($"DialogSpeaker '{name}' has no dialog graph.", this);
+                return;
             }
+
+            Talked?.Invoke(this);
         }
     }
 }
