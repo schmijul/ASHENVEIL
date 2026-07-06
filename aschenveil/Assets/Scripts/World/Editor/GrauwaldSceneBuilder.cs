@@ -32,6 +32,7 @@ namespace Ashenveil.World.Editor
     {
         private const string ScenePath = "Assets/Scenes/Grauwald.unity";
         private const string TreeDir = "Assets/Environment/Trees";
+        private const string KenneyNatureKitDir = "Assets/Kenney/NatureKit";
         private const string VikingBuildings = "Assets/Viking Village/Prefabs/Buildings";
 
         // Landmark anchors (X,Z). Story order (GDD Phase 1→): the player WAKES deep in the
@@ -53,6 +54,7 @@ namespace Ashenveil.World.Editor
             new GameObject("AudioDirector").AddComponent<Ashenveil.Audio.AudioDirector>();
             Transform ground = BuildGround();
             BuildForest();
+            BuildUndergrowth();
 
             // Village (normal + burning variants share a parent for the destruction swap).
             var villageNormal = new GameObject("Village_Normal");
@@ -211,10 +213,29 @@ namespace Ashenveil.World.Editor
 
         private static void BuildForest()
         {
-            List<GameObject> trees = LoadTrees();
+            string[] treeNames =
+            {
+                "tree_pineTallA",
+                "tree_pineTallB",
+                "tree_pineTallC",
+                "tree_pineTallD",
+                "tree_pineDefaultA",
+                "tree_pineDefaultB",
+                "tree_pineRoundA",
+                "tree_pineRoundB",
+                "tree_pineRoundC",
+                "tree_pineRoundD",
+                "tree_oak",
+                "tree_detailed",
+                "tree_fat",
+                "tree_tall",
+                "tree_thin"
+            };
+
+            List<GameObject> trees = LoadKenneyModels(treeNames);
             if (trees.Count == 0)
             {
-                Debug.LogWarning("[GrauwaldSceneBuilder] No tree models found in " + TreeDir);
+                Debug.LogWarning("[GrauwaldSceneBuilder] No Kenney tree models found in " + KenneyNatureKitDir);
                 return;
             }
 
@@ -222,12 +243,10 @@ namespace Ashenveil.World.Editor
             var rng = new System.Random(1337);
             int placed = 0;
 
-            Material bark = MakeMat("Assets/Settings/TreeBark.asset", new Color(0.22f, 0.15f, 0.09f), 0.15f);
-            Material leaf = MakeLeafMat("Assets/Settings/TreeLeaf.asset",
-                "Assets/Environment/Trees/Textures/leaf_broad.png", new Color(0.55f, 0.62f, 0.45f));
-
-            for (int i = 0; i < 1500; i++)
+            int attempts = 0;
+            while (placed < 900 && attempts < 5000)
             {
+                attempts++;
                 float x = (float)(rng.NextDouble() * 380.0 - 190.0);
                 float z = (float)(rng.NextDouble() * 380.0 - 190.0);
                 var pos = new Vector3(x, 0f, z);
@@ -240,21 +259,80 @@ namespace Ashenveil.World.Editor
                 if (Near(pos, BossArenaPos, 16f)) continue;  // boss arena
 
                 GameObject prefab = trees[rng.Next(trees.Count)];
-                var tree = (GameObject)PrefabUtility.InstantiatePrefab(prefab, forest.transform);
-                tree.transform.position = pos;
-                // Preserve the importer's stand-up rotation and unit-compensation scale;
-                // compose a random yaw / size variance on top instead of overwriting them.
                 float yaw = (float)(rng.NextDouble() * 360.0);
-                tree.transform.rotation = Quaternion.Euler(0f, yaw, 0f) * tree.transform.rotation;
-                float baseScale = tree.transform.localScale.x;
-                float s = baseScale * (0.85f + (float)rng.NextDouble() * 0.5f);
-                tree.transform.localScale = new Vector3(s, s, s);
-                AddTrunkCollider(tree, baseScale);
-                ApplyTreeMaterials(tree, bark, leaf);
+                bool tallPine = prefab.name.IndexOf("pineTall", System.StringComparison.OrdinalIgnoreCase) >= 0;
+                float minHeight = tallPine ? 8f : 6f;
+                float maxHeight = tallPine ? 13f : 11f;
+                float targetHeight = RandomRange(rng, minHeight, maxHeight);
+                GameObject tree = InstantiateFittedKenneyPrefab(prefab, forest.transform, pos, yaw, targetHeight, 1f, out float fittedHeight);
+                AddTrunkCollider(tree, fittedHeight);
                 placed++;
             }
 
             Debug.Log($"[GrauwaldSceneBuilder] Placed {placed} trees.");
+        }
+
+        private static void BuildUndergrowth()
+        {
+            string[] propNames =
+            {
+                "grass", "grass", "grass", "grass", "grass", "grass",
+                "grass_large", "grass_large", "grass_large", "grass_large", "grass_large",
+                "grass_leafs", "grass_leafs", "grass_leafs", "grass_leafs", "grass_leafs", "grass_leafs", "grass_leafs",
+                "plant_bush", "plant_bush",
+                "plant_bushDetailed", "plant_bushDetailed",
+                "plant_bushLarge", "plant_bushLarge",
+                "plant_bushSmall", "plant_bushSmall",
+                "mushroom_redGroup",
+                "mushroom_tanGroup",
+                "stump_round",
+                "stump_old",
+                "log",
+                "rock",
+                "rock_smallA",
+                "rock_smallB",
+                "rock_largeA",
+                "rock_largeB"
+            };
+
+            List<GameObject> props = LoadKenneyModels(propNames);
+            if (props.Count == 0)
+            {
+                Debug.LogWarning("[GrauwaldSceneBuilder] No Kenney undergrowth models found in " + KenneyNatureKitDir);
+                return;
+            }
+
+            var undergrowth = new GameObject("Undergrowth");
+            var rng = new System.Random(4242);
+            int placed = 0;
+            int attempts = 0;
+
+            while (placed < 1400 && attempts < 8000)
+            {
+                attempts++;
+                float x = (float)(rng.NextDouble() * 380.0 - 190.0);
+                float z = (float)(rng.NextDouble() * 380.0 - 190.0);
+                var pos = new Vector3(x, 0f, z);
+
+                if (Near(pos, PlayerStart, 4f)) continue;
+                if (Near(pos, VillageCenter, 30f)) continue;
+                if (Near(pos, CrystalPos, 6f)) continue;
+                if (Near(pos, BossArenaPos, 12f)) continue;
+
+                GameObject prefab = props[rng.Next(props.Count)];
+                float yaw = (float)(rng.NextDouble() * 360.0);
+                float targetHeight = RandomUndergrowthHeight(prefab.name, rng);
+                float extraScale = RandomRange(rng, 0.8f, 1.5f);
+                GameObject prop = InstantiateFittedKenneyPrefab(prefab, undergrowth.transform, pos, yaw, targetHeight, extraScale, out _);
+                if (ShouldAddUndergrowthCollider(prefab.name))
+                {
+                    AddBoundsCollider(prop);
+                }
+
+                placed++;
+            }
+
+            Debug.Log($"[GrauwaldSceneBuilder] Placed {placed} undergrowth props.");
         }
 
         private static List<GameObject> LoadTrees()
@@ -274,6 +352,109 @@ namespace Ashenveil.World.Editor
             }
 
             return list;
+        }
+
+        private static List<GameObject> LoadKenneyModels(string[] names)
+        {
+            var list = new List<GameObject>();
+            for (int i = 0; i < names.Length; i++)
+            {
+                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{KenneyNatureKitDir}/{names[i]}.fbx");
+                if (prefab != null)
+                {
+                    list.Add(prefab);
+                }
+            }
+
+            return list;
+        }
+
+        private static GameObject InstantiateFittedKenneyPrefab(
+            GameObject prefab,
+            Transform parent,
+            Vector3 position,
+            float yaw,
+            float targetHeight,
+            float extraScale,
+            out float fittedHeight)
+        {
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
+            instance.transform.position = position;
+            instance.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+            fittedHeight = targetHeight;
+
+            if (TryGetCombinedRendererBounds(instance, out Bounds bounds) && bounds.size.y > 0.001f)
+            {
+                float baseScale = targetHeight / bounds.size.y;
+                float scale = baseScale * extraScale;
+                instance.transform.localScale = Vector3.one * scale;
+                if (TryGetCombinedRendererBounds(instance, out Bounds scaledBounds))
+                {
+                    fittedHeight = scaledBounds.size.y;
+                }
+            }
+
+            UrpFixMaterials(instance);
+            return instance;
+        }
+
+        private static bool TryGetCombinedRendererBounds(GameObject root, out Bounds bounds)
+        {
+            bounds = new Bounds(root.transform.position, Vector3.zero);
+            bool hasBounds = false;
+            Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                if (!hasBounds)
+                {
+                    bounds = renderers[i].bounds;
+                    hasBounds = true;
+                }
+                else
+                {
+                    bounds.Encapsulate(renderers[i].bounds);
+                }
+            }
+
+            return hasBounds;
+        }
+
+        private static float RandomRange(System.Random rng, float min, float max)
+        {
+            return min + (float)rng.NextDouble() * (max - min);
+        }
+
+        private static float RandomUndergrowthHeight(string name, System.Random rng)
+        {
+            if (name.IndexOf("grass", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return RandomRange(rng, 0.4f, 0.8f);
+            }
+
+            if (name.IndexOf("bush", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return RandomRange(rng, 0.8f, 1.6f);
+            }
+
+            if (name.IndexOf("stump", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("log", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return RandomRange(rng, 0.6f, 1.2f);
+            }
+
+            if (name.IndexOf("rock", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return RandomRange(rng, 0.5f, 1.4f);
+            }
+
+            return RandomRange(rng, 0.25f, 0.6f);
+        }
+
+        private static bool ShouldAddUndergrowthCollider(string name)
+        {
+            return name.IndexOf("stump", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("log", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("rock", System.StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static Material MakeMat(string path, Color color, float smoothness)
@@ -354,15 +535,28 @@ namespace Ashenveil.World.Editor
             }
         }
 
-        private static void AddTrunkCollider(GameObject tree, float baseScale)
+        private static void AddTrunkCollider(GameObject tree, float worldHeight)
         {
-            // Collider lives on the scale-baseScale root, so express dimensions in local
-            // units (world metres / baseScale) to get a ~0.5 m trunk and ~10 m height.
-            float inv = baseScale > 0f ? 1f / baseScale : 1f;
+            float scale = Mathf.Abs(tree.transform.localScale.x);
+            float inv = scale > 0.001f ? 1f / scale : 1f;
             var col = tree.AddComponent<CapsuleCollider>();
-            col.radius = 0.5f * inv;
-            col.height = 10f * inv;
-            col.center = new Vector3(0f, 5f * inv, 0f);
+            col.radius = 0.4f * inv;
+            col.height = Mathf.Max(worldHeight * inv, col.radius * 2f);
+            col.center = new Vector3(0f, worldHeight * 0.5f * inv, 0f);
+        }
+
+        private static void AddBoundsCollider(GameObject root)
+        {
+            if (!TryGetCombinedRendererBounds(root, out Bounds bounds))
+            {
+                return;
+            }
+
+            float scale = Mathf.Abs(root.transform.localScale.x);
+            float inv = scale > 0.001f ? 1f / scale : 1f;
+            var col = root.AddComponent<BoxCollider>();
+            col.center = root.transform.InverseTransformPoint(bounds.center);
+            col.size = bounds.size * inv;
         }
 
         // ---------------------------------------------------------------- village
