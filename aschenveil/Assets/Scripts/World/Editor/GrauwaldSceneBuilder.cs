@@ -12,6 +12,7 @@ using Ashenveil.Trade;
 using Ashenveil.UI;
 using Ashenveil.VFX;
 using UnityEditor;
+using UnityEditor.Animations;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -33,11 +34,13 @@ namespace Ashenveil.World.Editor
         private const string TreeDir = "Assets/Environment/Trees";
         private const string VikingBuildings = "Assets/Viking Village/Prefabs/Buildings";
 
-        // Landmark anchors (X,Z). Village near origin; deep forest + crystal to the north; boss beyond.
-        private static readonly Vector3 PlayerStart = new Vector3(0f, 1f, -40f);
+        // Landmark anchors (X,Z). Story order (GDD Phase 1→): the player WAKES deep in the
+        // southern forest, walks north through the woods to the village, then continues north
+        // into deeper forest to the crystal and boss beyond.
+        private static readonly Vector3 PlayerStart = new Vector3(0f, 1f, -130f);
         private static readonly Vector3 VillageCenter = new Vector3(0f, 0f, 0f);
-        private static readonly Vector3 CrystalPos = new Vector3(20f, 0f, 90f);
-        private static readonly Vector3 BossArenaPos = new Vector3(-10f, 0f, 130f);
+        private static readonly Vector3 CrystalPos = new Vector3(20f, 0f, 95f);
+        private static readonly Vector3 BossArenaPos = new Vector3(-12f, 0f, 140f);
 
         [MenuItem("Ashenveil/Build Grauwald Scene")]
         public static void BuildGrauwaldScene()
@@ -149,17 +152,18 @@ namespace Ashenveil.World.Editor
             Material bark = MakeMat("Assets/Settings/TreeBark.asset", new Color(0.22f, 0.15f, 0.09f), 0.15f);
             Material leaf = MakeMat("Assets/Settings/TreeLeaf.asset", new Color(0.13f, 0.26f, 0.10f), 0.1f);
 
-            for (int i = 0; i < 900; i++)
+            for (int i = 0; i < 1500; i++)
             {
-                float x = (float)(rng.NextDouble() * 360.0 - 180.0);
-                float z = (float)(rng.NextDouble() * 360.0 - 180.0);
+                float x = (float)(rng.NextDouble() * 380.0 - 190.0);
+                float z = (float)(rng.NextDouble() * 380.0 - 190.0);
                 var pos = new Vector3(x, 0f, z);
 
-                // Keep clearings: village, player path, crystal, boss arena.
-                if (Near(pos, VillageCenter, 34f)) continue;
-                if (Near(pos, CrystalPos, 12f)) continue;
-                if (Near(pos, BossArenaPos, 16f)) continue;
-                if (Mathf.Abs(x) < 5f && z < -10f && z > -45f) continue; // opening path
+                // Keep clearings only where the story needs open space; forest fills the rest,
+                // including the whole stretch between the wake spot and the village.
+                if (Near(pos, PlayerStart, 7f)) continue;   // small wake clearing
+                if (Near(pos, VillageCenter, 32f)) continue; // village
+                if (Near(pos, CrystalPos, 11f)) continue;    // crystal clearing
+                if (Near(pos, BossArenaPos, 16f)) continue;  // boss arena
 
                 GameObject prefab = trees[rng.Next(trees.Count)];
                 var tree = (GameObject)PrefabUtility.InstantiatePrefab(prefab, forest.transform);
@@ -356,12 +360,9 @@ namespace Ashenveil.World.Editor
             cc.radius = 0.35f;
             cc.center = new Vector3(0f, 0.9f, 0f);
 
-            // Visible body.
-            var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            body.name = "Body";
-            body.transform.SetParent(root.transform, false);
-            body.transform.localPosition = new Vector3(0f, 0.9f, 0f);
-            Object.DestroyImmediate(body.GetComponent<Collider>());
+            // Visible rigged body (Blink human) with a locomotion animator.
+            AnimatorController locomotion = CharacterAnimatorFactory.BuildLocomotionController();
+            GameObject body = InstantiateCharacter(root.transform, locomotion, out Animator bodyAnimator);
 
             var inputConfig = ScriptableObject.CreateInstance<PlayerInputConfig>();
             AssetDatabase.CreateAsset(inputConfig, "Assets/ScriptableObjects/Player_InputConfig.asset");
@@ -429,6 +430,14 @@ namespace Ashenveil.World.Editor
             var camCtrl = camGo.AddComponent<Ashenveil.CameraRig.ThirdPersonCameraController>();
             SetRef(camCtrl, "_target", root.transform);
             SetRef(movement, "_cameraTransform", camGo.transform);
+
+            // Drive the rigged body's animator from movement state.
+            if (bodyAnimator != null)
+            {
+                var animCtrl = root.AddComponent<PlayerAnimationController>();
+                SetRef(animCtrl, "_animator", bodyAnimator);
+                SetRef(animCtrl, "_movementController", movement);
+            }
 
             return new PlayerRig
             {
@@ -512,8 +521,9 @@ namespace Ashenveil.World.Editor
         {
             var agentPrefab = BuildWildlifeAgentPrefab();
 
-            SpawnHerd("DeerSpawner", content.Deer, agentPrefab, threat, new Vector3(25f, 0f, -20f), 3);
-            SpawnHerd("BoarSpawner", content.Boar, agentPrefab, threat, new Vector3(-28f, 0f, -18f), 2);
+            // Along the forest walk from the wake spot (z=-130) up toward the village.
+            SpawnHerd("DeerSpawner", content.Deer, agentPrefab, threat, new Vector3(18f, 0f, -95f), 3);
+            SpawnHerd("BoarSpawner", content.Boar, agentPrefab, threat, new Vector3(-22f, 0f, -60f), 2);
         }
 
         private static WildlifeAgent BuildWildlifeAgentPrefab()
@@ -639,11 +649,26 @@ namespace Ashenveil.World.Editor
             SetList(services, "_vendors", vendors);
         }
 
+        private static GameObject BuildNpcRoot(string name, Vector3 pos, Vector3 facePos)
+        {
+            var go = new GameObject(name);
+            go.transform.position = pos;
+            go.transform.rotation = Quaternion.LookRotation(Flatten(facePos - pos));
+
+            // Interaction + physical presence collider on the root.
+            var col = go.AddComponent<CapsuleCollider>();
+            col.radius = 0.4f;
+            col.height = 1.8f;
+            col.center = new Vector3(0f, 0.9f, 0f);
+
+            // Rigged body idling (reuses the player's locomotion controller at Speed 0).
+            InstantiateCharacter(go.transform, CharacterAnimatorFactory.LoadLocomotionController(), out _);
+            return go;
+        }
+
         private static DialogSpeaker BuildSpeaker(string npcName, DialogGraph graph, Vector3 pos)
         {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            go.name = "NPC_" + npcName;
-            go.transform.position = pos + Vector3.up * 1f;
+            GameObject go = BuildNpcRoot("NPC_" + npcName, pos, VillageCenter);
             var speaker = go.AddComponent<DialogSpeaker>();
             SetRef(speaker, "_dialogGraph", graph);
             SetString(speaker, "_npcDisplayName", npcName);
@@ -652,13 +677,17 @@ namespace Ashenveil.World.Editor
 
         private static VendorController BuildVendor(GrauwaldContentFactory.Content content, PlayerInventory inventory, Vector3 pos)
         {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            go.name = "NPC_Vendor";
-            go.transform.position = pos + Vector3.up * 1f;
+            GameObject go = BuildNpcRoot("NPC_Vendor", pos, VillageCenter);
             var vendor = go.AddComponent<VendorController>();
             SetRef(vendor, "_vendorDefinition", content.Vendor);
             SetRef(vendor, "_playerInventory", inventory);
             return vendor;
+        }
+
+        private static Vector3 Flatten(Vector3 v)
+        {
+            v.y = 0f;
+            return v.sqrMagnitude < 1e-4f ? Vector3.forward : v.normalized;
         }
 
         private static void BossBind(BossBarController bar, MutatedWolfBossController boss, BossArenaTrigger arena)
@@ -673,6 +702,112 @@ namespace Ashenveil.World.Editor
         {
             a.y = 0f; b.y = 0f;
             return Vector3.Distance(a, b) < dist;
+        }
+
+        private static Shader _urpLitCache;
+
+        /// <summary>
+        /// Rebuilds a character's materials as URP/Lit, preserving the albedo texture and
+        /// tint. Blink ships built-in/HDRP materials that render magenta under URP; this
+        /// keeps the look without a full project-wide material upgrade.
+        /// </summary>
+        private static void UrpFixMaterials(GameObject root)
+        {
+            if (_urpLitCache == null)
+            {
+                _urpLitCache = Shader.Find("Universal Render Pipeline/Lit");
+            }
+
+            var cache = new Dictionary<Material, Material>();
+            foreach (Renderer r in root.GetComponentsInChildren<Renderer>(true))
+            {
+                Material[] src = r.sharedMaterials;
+                var dst = new Material[src.Length];
+                for (int i = 0; i < src.Length; i++)
+                {
+                    Material m = src[i];
+                    if (m == null)
+                    {
+                        continue;
+                    }
+
+                    if (m.shader != null && m.shader.name == "Universal Render Pipeline/Lit")
+                    {
+                        dst[i] = m;
+                        continue;
+                    }
+
+                    if (!cache.TryGetValue(m, out Material converted))
+                    {
+                        converted = new Material(_urpLitCache);
+                        Texture main = m.HasProperty("_MainTex") ? m.GetTexture("_MainTex") : m.mainTexture;
+                        if (main == null && m.HasProperty("_BaseMap"))
+                        {
+                            main = m.GetTexture("_BaseMap");
+                        }
+
+                        if (main != null)
+                        {
+                            converted.SetTexture("_BaseMap", main);
+                        }
+
+                        if (m.HasProperty("_Color"))
+                        {
+                            converted.SetColor("_BaseColor", m.GetColor("_Color"));
+                        }
+
+                        converted.SetFloat("_Smoothness", 0.25f);
+                        cache[m] = converted;
+                    }
+
+                    dst[i] = converted;
+                }
+
+                r.sharedMaterials = dst;
+            }
+        }
+
+        private const string CharacterPrefab =
+            "Assets/Blink/Art/Characters/Stylized/Humans/Prefabs_Humans/HumanMale_Character_Free.prefab";
+
+        /// <summary>
+        /// Instantiates the Blink human under a parent, assigns a locomotion controller,
+        /// and returns the body plus its Animator. Falls back to a capsule if the prefab
+        /// is missing so scene builds never break.
+        /// </summary>
+        private static GameObject InstantiateCharacter(Transform parent, AnimatorController controller, out Animator animator)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(CharacterPrefab);
+            if (prefab == null)
+            {
+                var capsule = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                capsule.name = "Body";
+                capsule.transform.SetParent(parent, false);
+                capsule.transform.localPosition = new Vector3(0f, 0.9f, 0f);
+                Object.DestroyImmediate(capsule.GetComponent<Collider>());
+                animator = null;
+                return capsule;
+            }
+
+            var body = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
+            body.name = "Body";
+            body.transform.localPosition = Vector3.zero;
+            body.transform.localRotation = Quaternion.identity;
+
+            animator = body.GetComponent<Animator>();
+            if (animator == null)
+            {
+                animator = body.GetComponentInChildren<Animator>();
+            }
+
+            if (animator != null && controller != null)
+            {
+                animator.runtimeAnimatorController = controller;
+                animator.applyRootMotion = false;
+            }
+
+            UrpFixMaterials(body);
+            return body;
         }
 
         private static GameObject NewChild(GameObject parent, string name)
