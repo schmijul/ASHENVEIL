@@ -223,7 +223,8 @@ namespace Ashenveil.World.Editor
             int placed = 0;
 
             Material bark = MakeMat("Assets/Settings/TreeBark.asset", new Color(0.22f, 0.15f, 0.09f), 0.15f);
-            Material leaf = MakeMat("Assets/Settings/TreeLeaf.asset", new Color(0.13f, 0.26f, 0.10f), 0.1f);
+            Material leaf = MakeLeafMat("Assets/Settings/TreeLeaf.asset",
+                "Assets/Environment/Trees/Textures/leaf_broad.png", new Color(0.55f, 0.62f, 0.45f));
 
             for (int i = 0; i < 1500; i++)
             {
@@ -291,21 +292,62 @@ namespace Ashenveil.World.Editor
             return existing;
         }
 
+        /// <summary>
+        /// Builds a foliage material: URP Lit with an alpha-cutout leaf texture and
+        /// double-sided rendering, so flat leaf cards read as leafy clumps instead of
+        /// solid triangles.
+        /// </summary>
+        private static Material MakeLeafMat(string path, string texturePath, Color tint)
+        {
+            // Ensure the leaf texture's alpha is read as transparency for cutout.
+            var importer = AssetImporter.GetAtPath(texturePath) as TextureImporter;
+            if (importer != null && (!importer.alphaIsTransparency || importer.alphaSource != TextureImporterAlphaSource.FromInput))
+            {
+                importer.alphaIsTransparency = true;
+                importer.alphaSource = TextureImporterAlphaSource.FromInput;
+                importer.SaveAndReimport();
+            }
+
+            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = tint };
+            var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(texturePath);
+            if (tex != null)
+            {
+                mat.SetTexture("_BaseMap", tex);
+            }
+
+            // Alpha clipping (cutout) + double-sided.
+            mat.SetFloat("_AlphaClip", 1f);
+            mat.SetFloat("_Cutoff", 0.45f);
+            mat.EnableKeyword("_ALPHATEST_ON");
+            mat.SetFloat("_Cull", 0f); // render both faces
+            mat.SetFloat("_Smoothness", 0.08f);
+            mat.SetFloat("_Metallic", 0f);
+            mat.renderQueue = 2450; // AlphaTest
+
+            var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (existing == null)
+            {
+                AssetDatabase.CreateAsset(mat, path);
+                return mat;
+            }
+
+            existing.CopyPropertiesFromMaterial(mat);
+            return existing;
+        }
+
         private static void ApplyTreeMaterials(GameObject tree, Material bark, Material leaf)
         {
-            foreach (MeshFilter mf in tree.GetComponentsInChildren<MeshFilter>())
+            foreach (Renderer r in tree.GetComponentsInChildren<Renderer>())
             {
-                var r = mf.GetComponent<Renderer>();
-                if (r == null)
+                Material[] src = r.sharedMaterials;
+                var mats = new Material[src.Length];
+                for (int i = 0; i < src.Length; i++)
                 {
-                    continue;
-                }
-
-                int slots = mf.sharedMesh != null ? mf.sharedMesh.subMeshCount : 1;
-                var mats = new Material[Mathf.Max(1, slots)];
-                for (int i = 0; i < mats.Length; i++)
-                {
-                    mats[i] = i == 0 ? bark : leaf;
+                    // The imported FBX names slots "*_Leaf" / "*_Bark"; match on that so
+                    // foliage always gets the cutout leaf material regardless of slot order.
+                    string name = src[i] != null ? src[i].name : string.Empty;
+                    bool isLeaf = name.IndexOf("leaf", System.StringComparison.OrdinalIgnoreCase) >= 0;
+                    mats[i] = isLeaf ? leaf : bark;
                 }
 
                 r.sharedMaterials = mats;
@@ -533,13 +575,9 @@ namespace Ashenveil.World.Editor
 
         private static AetherCrystal BuildCrystal(AetherPool pool)
         {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            go.name = "AetherCrystal";
-            go.transform.position = CrystalPos + Vector3.up * 1.2f;
-            go.transform.localScale = new Vector3(0.8f, 2.2f, 0.8f);
-            go.transform.rotation = Quaternion.Euler(12f, 30f, 8f);
-            var col = go.GetComponent<Collider>();
-            col.isTrigger = false;
+            var go = new GameObject("AetherCrystal");
+            go.transform.position = CrystalPos;
+            go.transform.rotation = Quaternion.Euler(0f, 30f, 0f);
 
             var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"))
             {
@@ -547,8 +585,27 @@ namespace Ashenveil.World.Editor
             };
             mat.EnableKeyword("_EMISSION");
             mat.SetColor("_EmissionColor", new Color(0.3f, 1.4f, 1.7f));
+            mat.SetFloat("_Smoothness", 0.85f);
             AssetDatabase.CreateAsset(mat, "Assets/Settings/CrystalMaterial.asset");
-            go.GetComponent<MeshRenderer>().sharedMaterial = mat;
+
+            // Faceted crystal-cluster model (replaces the placeholder cube).
+            var crystalModel = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Environment/Props/AetherCrystal.fbx");
+            if (crystalModel != null)
+            {
+                var model = (GameObject)PrefabUtility.InstantiatePrefab(crystalModel, go.transform);
+                model.name = "Model";
+                model.transform.localPosition = Vector3.zero;
+                foreach (Renderer r in model.GetComponentsInChildren<Renderer>())
+                {
+                    r.sharedMaterial = mat;
+                }
+            }
+
+            // Interaction collider sized to the cluster.
+            var col = go.AddComponent<CapsuleCollider>();
+            col.height = 3f;
+            col.radius = 0.8f;
+            col.center = new Vector3(0f, 1.5f, 0f);
 
             var glowLight = new GameObject("CrystalLight");
             glowLight.transform.SetParent(go.transform, false);
@@ -771,13 +828,13 @@ namespace Ashenveil.World.Editor
             {
                 float x = (float)(rng.NextDouble() * 60.0 - 30.0);
                 float z = -120f + i * 20f;
-                MakePickup(root.transform, "Herb_" + i, content.Herb, 1, new Vector3(x, 0.3f, z),
-                    new Color(0.5f, 0.1f, 0.2f));
+                MakePickup(root.transform, "Herb_" + i, content.Herb, 1, new Vector3(x, 0f, z),
+                    new Color(0.5f, 0.1f, 0.2f), "Assets/Environment/Props/HerbPlant.fbx");
             }
 
             // The smith's lost hammer near the rocks by the crystal path.
             MakePickup(root.transform, "Hammer", content.Hammer, 1, new Vector3(-14f, 0.4f, 40f),
-                new Color(0.4f, 0.3f, 0.2f));
+                new Color(0.4f, 0.3f, 0.2f), null);
 
             return new List<GameServices.QuestItemLink>
             {
@@ -786,19 +843,40 @@ namespace Ashenveil.World.Editor
             };
         }
 
-        private static void MakePickup(Transform parent, string name, ItemDefinition item, int qty, Vector3 pos, Color color)
+        private static void MakePickup(Transform parent, string name, ItemDefinition item, int qty, Vector3 pos, Color color, string modelPath)
         {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            var go = new GameObject("Pickup_" + name);
             go.name = "Pickup_" + name;
             go.transform.SetParent(parent, false);
             go.transform.position = pos;
-            go.transform.localScale = Vector3.one * 0.5f;
 
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = color };
-            mat.EnableKeyword("_EMISSION");
-            mat.SetColor("_EmissionColor", color * 1.5f);
-            go.GetComponent<MeshRenderer>().sharedMaterial = mat;
-            go.GetComponent<Collider>().isTrigger = true;
+            var trigger = go.AddComponent<SphereCollider>();
+            trigger.isTrigger = true;
+            trigger.radius = 0.5f;
+            trigger.center = new Vector3(0f, 0.4f, 0f);
+
+            GameObject prefab = string.IsNullOrEmpty(modelPath) ? null : AssetDatabase.LoadAssetAtPath<GameObject>(modelPath);
+            if (prefab != null)
+            {
+                var model = (GameObject)PrefabUtility.InstantiatePrefab(prefab, go.transform);
+                model.name = "Model";
+                model.transform.localPosition = Vector3.zero;
+                UrpFixMaterials(model);
+            }
+            else
+            {
+                var visual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                visual.name = "Model";
+                visual.transform.SetParent(go.transform, false);
+                visual.transform.localPosition = Vector3.zero;
+                visual.transform.localScale = Vector3.one * 0.5f;
+                Object.DestroyImmediate(visual.GetComponent<Collider>());
+
+                var mat = new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = color };
+                mat.EnableKeyword("_EMISSION");
+                mat.SetColor("_EmissionColor", color * 1.5f);
+                visual.GetComponent<MeshRenderer>().sharedMaterial = mat;
+            }
 
             var pickup = go.AddComponent<ItemPickup>();
             SetPickupItem(pickup, item, qty);
