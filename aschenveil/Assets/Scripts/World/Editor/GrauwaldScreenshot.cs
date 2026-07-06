@@ -42,6 +42,8 @@ namespace Ashenveil.World.Editor
             Shot(cam, outDir, "06_canopy", new Vector3(-45f, 24f, -55f), new Vector3(0f, 2f, 10f));
             // Close-up of the healer NPC (at village center + (6,0,4)).
             Shot(cam, outDir, "07_npc_closeup", new Vector3(6f, 1.6f, 1f), new Vector3(6f, 1.2f, 4f));
+            Shot(cam, outDir, "08_deer", new Vector3(18f, 1.6f, -100f), new Vector3(18f, 0.8f, -95f));
+            Shot(cam, outDir, "09_boss", new Vector3(-12f, 1.8f, 134f), new Vector3(-12f, 0.8f, 140f));
 
             Debug.Log("[GrauwaldScreenshot] Wrote shots to " + outDir);
         }

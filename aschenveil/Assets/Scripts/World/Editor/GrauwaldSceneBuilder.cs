@@ -500,16 +500,27 @@ namespace Ashenveil.World.Editor
 
         private static (MutatedWolfBossController, BossArenaTrigger) BuildBoss(PlayerRig rig)
         {
-            var bossGo = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            bossGo.name = "MutatedWolf";
-            bossGo.transform.position = BossArenaPos + Vector3.up * 1f;
-            bossGo.transform.localScale = new Vector3(1.6f, 1.2f, 2.6f);
+            var bossGo = new GameObject("MutatedWolf");
+            bossGo.transform.position = BossArenaPos + Vector3.up * 0.2f;
+            var cc = bossGo.AddComponent<CharacterController>();
+            cc.height = 1.4f;
+            cc.radius = 0.6f;
+            cc.center = new Vector3(0f, 0.8f, 0f);
+
+            // Mutated wolf model, scaled up and tinted sickly aether-purple.
+            GameObject model = AttachAnimalModel(bossGo.transform, "Wolf");
+            model.transform.localScale = model.transform.localScale * 1.8f;
             var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"))
             {
-                color = new Color(0.18f, 0.14f, 0.16f)
+                color = new Color(0.22f, 0.14f, 0.26f)
             };
-            AssetDatabase.CreateAsset(mat, "Assets/Settings/BossMaterial.asset");
-            bossGo.GetComponent<MeshRenderer>().sharedMaterial = mat;
+            mat.EnableKeyword("_EMISSION");
+            mat.SetColor("_EmissionColor", new Color(0.18f, 0.05f, 0.28f));
+            foreach (Renderer r in model.GetComponentsInChildren<Renderer>())
+            {
+                r.sharedMaterial = mat;
+            }
+
             var boss = bossGo.AddComponent<MutatedWolfBossController>();
 
             var arenaGo = new GameObject("BossArena");
@@ -528,26 +539,51 @@ namespace Ashenveil.World.Editor
 
         // ---------------------------------------------------------------- wildlife
 
+        private const string AnimalDir = "Assets/Environment/Animals";
+
         private static void BuildWildlife(GrauwaldContentFactory.Content content, Transform threat)
         {
-            var agentPrefab = BuildWildlifeAgentPrefab();
+            WildlifeAgent deerPrefab = BuildWildlifeAgentPrefab("Deer");
+            WildlifeAgent boarPrefab = BuildWildlifeAgentPrefab("Boar");
 
             // Along the forest walk from the wake spot (z=-130) up toward the village.
-            SpawnHerd("DeerSpawner", content.Deer, agentPrefab, threat, new Vector3(18f, 0f, -95f), 3);
-            SpawnHerd("BoarSpawner", content.Boar, agentPrefab, threat, new Vector3(-22f, 0f, -60f), 2);
+            SpawnHerd("DeerSpawner", content.Deer, deerPrefab, threat, new Vector3(18f, 0f, -95f), 3);
+            SpawnHerd("BoarSpawner", content.Boar, boarPrefab, threat, new Vector3(-22f, 0f, -60f), 2);
         }
 
-        private static WildlifeAgent BuildWildlifeAgentPrefab()
+        /// <summary>Instantiates a low-poly animal model under a parent, or a capsule fallback.</summary>
+        private static GameObject AttachAnimalModel(Transform parent, string species)
         {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            go.name = "WildlifeAgent";
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{AnimalDir}/{species}.fbx");
+            if (prefab == null)
+            {
+                var cap = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                cap.transform.SetParent(parent, false);
+                Object.DestroyImmediate(cap.GetComponent<Collider>());
+                return cap;
+            }
+
+            var model = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
+            model.name = "Model";
+            model.transform.localPosition = Vector3.zero;
+            float s = model.transform.localScale.x; // FBX unit-compensation
+            UrpFixMaterials(model);
+            return model;
+        }
+
+        private static WildlifeAgent BuildWildlifeAgentPrefab(string species)
+        {
+            var go = new GameObject($"WildlifeAgent_{species}");
             var cc = go.AddComponent<CharacterController>();
-            cc.height = 1.2f;
+            cc.height = 1.1f;
             cc.radius = 0.4f;
-            var health = go.AddComponent<WildlifeHealth>();
+            cc.center = new Vector3(0f, 0.55f, 0f);
+            go.AddComponent<WildlifeHealth>();
             var agent = go.AddComponent<WildlifeAgent>();
 
-            const string prefabPath = "Assets/ScriptableObjects/Wildlife/WildlifeAgent.prefab";
+            AttachAnimalModel(go.transform, species);
+
+            string prefabPath = $"Assets/ScriptableObjects/Wildlife/WildlifeAgent_{species}.prefab";
             var prefab = PrefabUtility.SaveAsPrefabAsset(go, prefabPath);
             Object.DestroyImmediate(go);
             return prefab.GetComponent<WildlifeAgent>();
