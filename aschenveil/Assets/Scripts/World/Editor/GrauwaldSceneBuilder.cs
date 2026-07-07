@@ -1013,16 +1013,19 @@ namespace Ashenveil.World.Editor
             // Mutated wolf model, scaled up and tinted sickly aether-purple.
             GameObject model = AttachAnimalModel(bossGo.transform, "Wolf");
             model.transform.localScale = model.transform.localScale * 1.8f;
-            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"))
-            {
-                color = new Color(0.22f, 0.14f, 0.26f)
-            };
-            mat.EnableKeyword("_EMISSION");
-            mat.SetColor("_EmissionColor", new Color(0.18f, 0.05f, 0.28f));
-            foreach (Renderer r in model.GetComponentsInChildren<Renderer>())
-            {
-                r.sharedMaterial = mat;
-            }
+            UrpFixMaterials(model);
+            ApplyBossCorruptionMaterials(model);
+
+            VfxFactory.BuildAetherShimmer(bossGo.transform, new Color(0.5f, 0.2f, 0.9f));
+
+            var corruptionLightGo = new GameObject("CorruptedAetherLight");
+            corruptionLightGo.transform.SetParent(bossGo.transform, false);
+            corruptionLightGo.transform.localPosition = new Vector3(0f, 1.1f, 0f);
+            var corruptionLight = corruptionLightGo.AddComponent<Light>();
+            corruptionLight.type = LightType.Point;
+            corruptionLight.color = new Color(0.5f, 0.2f, 0.9f);
+            corruptionLight.range = 6f;
+            corruptionLight.intensity = 2f;
 
             var boss = bossGo.AddComponent<MutatedWolfBossController>();
 
@@ -1038,6 +1041,68 @@ namespace Ashenveil.World.Editor
             SetRef(boss, "_target", rig.Root.transform);
 
             return (boss, arena);
+        }
+
+        private static void ApplyBossCorruptionMaterials(GameObject model)
+        {
+            Color corruptionTint = new Color(0.35f, 0.30f, 0.42f, 1f);
+            Color emissionColor = new Color(0.28f, 0.10f, 0.42f) * 1.4f;
+
+            foreach (Renderer r in model.GetComponentsInChildren<Renderer>(true))
+            {
+                Material[] src = r.sharedMaterials;
+                var dst = new Material[src.Length];
+                for (int i = 0; i < src.Length; i++)
+                {
+                    Material m = src[i];
+                    if (m == null)
+                    {
+                        continue;
+                    }
+
+                    var clone = new Material(m);
+                    Color baseColor = Color.white;
+                    if (clone.HasProperty("_BaseColor"))
+                    {
+                        baseColor = clone.GetColor("_BaseColor");
+                    }
+                    else if (clone.HasProperty("_Color"))
+                    {
+                        baseColor = clone.GetColor("_Color");
+                    }
+
+                    Color corrupted = new Color(
+                        baseColor.r * corruptionTint.r,
+                        baseColor.g * corruptionTint.g,
+                        baseColor.b * corruptionTint.b,
+                        baseColor.a);
+
+                    if (clone.HasProperty("_BaseColor"))
+                    {
+                        clone.SetColor("_BaseColor", corrupted);
+                    }
+
+                    if (clone.HasProperty("_Color"))
+                    {
+                        clone.SetColor("_Color", corrupted);
+                    }
+
+                    clone.EnableKeyword("_EMISSION");
+                    if (clone.HasProperty("_EmissionColor"))
+                    {
+                        clone.SetColor("_EmissionColor", emissionColor);
+                    }
+
+                    if (clone.HasProperty("_Smoothness"))
+                    {
+                        clone.SetFloat("_Smoothness", 0.1f);
+                    }
+
+                    dst[i] = clone;
+                }
+
+                r.sharedMaterials = dst;
+            }
         }
 
         // ---------------------------------------------------------------- wildlife
