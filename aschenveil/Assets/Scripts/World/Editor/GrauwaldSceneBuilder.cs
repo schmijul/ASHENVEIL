@@ -42,8 +42,12 @@ namespace Ashenveil.World.Editor
         private static readonly Vector3 VillageCenter = new Vector3(0f, 0f, 0f);
         private static readonly Vector3 CrystalPos = new Vector3(20f, 0f, 95f);
         private static readonly Vector3 BossArenaPos = new Vector3(-12f, 0f, 140f);
-        private static readonly float GothicDesaturate = 0.55f;
-        private static readonly float GothicDarken = 0.45f;
+        private static readonly Color GothicLeafColor = new Color(0.10f, 0.16f, 0.09f);
+        private static readonly Color GothicBarkColor = new Color(0.14f, 0.10f, 0.07f);
+        private static readonly Color GothicSlateColor = new Color(0.16f, 0.16f, 0.17f);
+        private static readonly Color GothicMushroomColor = new Color(0.28f, 0.10f, 0.10f);
+        private static readonly Color GothicMossColor = new Color(0.13f, 0.15f, 0.10f);
+        private static readonly Dictionary<Color, Material> GothicFoliageMaterialCache = new Dictionary<Color, Material>();
         private static Terrain _activeTerrain;
 
         [MenuItem("Ashenveil/Build Grauwald Scene")]
@@ -396,17 +400,7 @@ namespace Ashenveil.World.Editor
                 float maxHeight = tallPine ? 13f : 11f;
                 float targetHeight = RandomRange(rng, minHeight, maxHeight);
                 GameObject tree = InstantiateFittedKenneyPrefab(prefab, forest.transform, pos, yaw, targetHeight, 1f, out float fittedHeight);
-                foreach (Renderer r in tree.GetComponentsInChildren<Renderer>(true))
-                {
-                    Material[] mats = r.sharedMaterials;
-                    for (int i = 0; i < mats.Length; i++)
-                    {
-                        if (mats[i] != null)
-                        {
-                            GothicTint(mats[i]);
-                        }
-                    }
-                }
+                ApplyGothicFoliageMaterials(tree);
 
                 AddTrunkCollider(tree, fittedHeight);
                 placed++;
@@ -467,17 +461,7 @@ namespace Ashenveil.World.Editor
                 float targetHeight = RandomUndergrowthHeight(prefab.name, rng);
                 float extraScale = RandomRange(rng, 0.8f, 1.5f);
                 GameObject prop = InstantiateFittedKenneyPrefab(prefab, undergrowth.transform, pos, yaw, targetHeight, extraScale, out _);
-                foreach (Renderer r in prop.GetComponentsInChildren<Renderer>(true))
-                {
-                    Material[] mats = r.sharedMaterials;
-                    for (int i = 0; i < mats.Length; i++)
-                    {
-                        if (mats[i] != null)
-                        {
-                            GothicTint(mats[i]);
-                        }
-                    }
-                }
+                ApplyGothicFoliageMaterials(prop);
 
                 if (ShouldAddUndergrowthCollider(prefab.name))
                 {
@@ -612,28 +596,87 @@ namespace Ashenveil.World.Editor
                 name.IndexOf("rock", System.StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
-        private static void GothicTint(Material m)
+        private static void ApplyGothicFoliageMaterials(GameObject root)
         {
-            Color original = Color.white;
-            if (m.HasProperty("_BaseColor"))
+            foreach (Renderer r in root.GetComponentsInChildren<Renderer>(true))
             {
-                original = m.GetColor("_BaseColor");
+                Material[] source = r.sharedMaterials;
+                var replacement = new Material[source.Length];
+                for (int i = 0; i < source.Length; i++)
+                {
+                    Material material = source[i];
+                    if (material == null)
+                    {
+                        continue;
+                    }
+
+                    replacement[i] = GetGothicFoliageMaterial(PickGothicFoliageColor(material.name));
+                }
+
+                r.sharedMaterials = replacement;
             }
-            else if (m.HasProperty("_Color"))
+        }
+
+        private static Color PickGothicFoliageColor(string materialName)
+        {
+            string name = materialName ?? string.Empty;
+            if (ContainsAny(name, "leaf", "foliage", "pine", "green"))
             {
-                original = m.GetColor("_Color");
+                return GothicLeafColor;
             }
 
-            float luminance = original.r * 0.2126f + original.g * 0.7152f + original.b * 0.0722f;
-            var grayscale = new Color(luminance, luminance, luminance, original.a);
-            Color tinted = Color.Lerp(original, grayscale, GothicDesaturate) * GothicDarken;
-            tinted.a = original.a;
-
-            m.SetColor("_BaseColor", tinted);
-            if (m.HasProperty("_Smoothness"))
+            if (ContainsAny(name, "wood", "bark", "trunk", "brown"))
             {
-                m.SetFloat("_Smoothness", 0.05f);
+                return GothicBarkColor;
             }
+
+            if (ContainsAny(name, "rock", "stone", "cliff", "grey", "gray"))
+            {
+                return GothicSlateColor;
+            }
+
+            if (ContainsAny(name, "mushroom"))
+            {
+                return GothicMushroomColor;
+            }
+
+            return GothicMossColor;
+        }
+
+        private static bool ContainsAny(string value, params string[] needles)
+        {
+            for (int i = 0; i < needles.Length; i++)
+            {
+                if (value.IndexOf(needles[i], System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static Material GetGothicFoliageMaterial(Color color)
+        {
+            if (GothicFoliageMaterialCache.TryGetValue(color, out Material material))
+            {
+                return material;
+            }
+
+            if (_urpLitCache == null)
+            {
+                _urpLitCache = Shader.Find("Universal Render Pipeline/Lit");
+            }
+
+            material = new Material(_urpLitCache)
+            {
+                name = "Gothic Foliage " + ColorUtility.ToHtmlStringRGB(color)
+            };
+            material.SetColor("_BaseColor", color);
+            material.SetFloat("_Smoothness", 0.05f);
+            material.SetFloat("_Metallic", 0f);
+            GothicFoliageMaterialCache[color] = material;
+            return material;
         }
 
         private static Material MakeMat(string path, Color color, float smoothness)
@@ -1467,6 +1510,7 @@ namespace Ashenveil.World.Editor
                     if (!cache.TryGetValue(m, out Material converted))
                     {
                         converted = new Material(_urpLitCache);
+                        converted.name = m.name;
                         Texture main = m.HasProperty("_MainTex") ? m.GetTexture("_MainTex") : m.mainTexture;
                         if (main == null && m.HasProperty("_BaseMap"))
                         {
