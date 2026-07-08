@@ -348,29 +348,21 @@ namespace Ashenveil.World.Editor
 
         private static void BuildForest()
         {
-            string[] treeNames =
+            string firTreePath = "Assets/Supercyan Free Forest Sample/Prefabs/High Quality/Tree/Fir/forestpack_tree_fir_tall.prefab";
+            string leafTreePath = "Assets/Supercyan Free Forest Sample/Prefabs/High Quality/Tree/Leaf/Normal/forestpack_tree_1_leaf_1.prefab";
+            string[] treePaths =
             {
-                "tree_pineTallA",
-                "tree_pineTallB",
-                "tree_pineTallC",
-                "tree_pineTallD",
-                "tree_pineDefaultA",
-                "tree_pineDefaultB",
-                "tree_pineRoundA",
-                "tree_pineRoundB",
-                "tree_pineRoundC",
-                "tree_pineRoundD",
-                "tree_oak",
-                "tree_detailed",
-                "tree_fat",
-                "tree_tall",
-                "tree_thin"
+                firTreePath, firTreePath, firTreePath, firTreePath, firTreePath,
+                firTreePath, firTreePath, firTreePath, firTreePath, firTreePath,
+                firTreePath, firTreePath, firTreePath,
+                leafTreePath, leafTreePath, leafTreePath, leafTreePath, leafTreePath,
+                leafTreePath, leafTreePath
             };
 
-            List<GameObject> trees = LoadKenneyModels(treeNames);
+            List<GameObject> trees = LoadPrefabs(treePaths);
             if (trees.Count == 0)
             {
-                Debug.LogWarning("[GrauwaldSceneBuilder] No Kenney tree models found in " + KenneyNatureKitDir);
+                Debug.LogWarning("[GrauwaldSceneBuilder] No realistic tree prefabs found.");
                 return;
             }
 
@@ -395,12 +387,11 @@ namespace Ashenveil.World.Editor
 
                 GameObject prefab = trees[rng.Next(trees.Count)];
                 float yaw = (float)(rng.NextDouble() * 360.0);
-                bool tallPine = prefab.name.IndexOf("pineTall", System.StringComparison.OrdinalIgnoreCase) >= 0;
-                float minHeight = tallPine ? 8f : 6f;
-                float maxHeight = tallPine ? 13f : 11f;
+                bool fir = prefab.name.IndexOf("fir", System.StringComparison.OrdinalIgnoreCase) >= 0;
+                float minHeight = fir ? 7f : 6f;
+                float maxHeight = fir ? 13f : 10f;
                 float targetHeight = RandomRange(rng, minHeight, maxHeight);
                 GameObject tree = InstantiateFittedKenneyPrefab(prefab, forest.transform, pos, yaw, targetHeight, 1f, out float fittedHeight);
-                ApplyGothicFoliageMaterials(tree);
 
                 AddTrunkCollider(tree, fittedHeight);
                 placed++;
@@ -411,31 +402,34 @@ namespace Ashenveil.World.Editor
 
         private static void BuildUndergrowth()
         {
-            string[] propNames =
+            string[] propPaths =
             {
-                "grass", "grass", "grass", "grass", "grass", "grass",
-                "grass_large", "grass_large", "grass_large", "grass_large", "grass_large",
-                "grass_leafs", "grass_leafs", "grass_leafs", "grass_leafs", "grass_leafs", "grass_leafs", "grass_leafs",
-                "plant_bush", "plant_bush",
-                "plant_bushDetailed", "plant_bushDetailed",
-                "plant_bushLarge", "plant_bushLarge",
-                "plant_bushSmall", "plant_bushSmall",
-                "mushroom_redGroup",
-                "mushroom_tanGroup",
-                "stump_round",
-                "stump_old",
-                "log",
-                "rock",
-                "rock_smallA",
-                "rock_smallB",
-                "rock_largeA",
-                "rock_largeB"
+                "Assets/Viking Village/Book of the Dead/Vegetation/MeadowGrass_01/Meadow_Grass_01_Var1_Prefab.prefab",
+                "Assets/Viking Village/Book of the Dead/Vegetation/MeadowGrass_01/Meadow_Grass_01_Var2_Prefab.prefab",
+                "Assets/Viking Village/Book of the Dead/Vegetation/MeadowGrass_01/Meadow_Grass_01_Var3_Prefab.prefab",
+                "Assets/Viking Village/Book of the Dead/Vegetation/MeadowGrass_01/Meadow_Grass_01_Var4_Prefab.prefab",
+                "Assets/Viking Village/Book of the Dead/Vegetation/MeadowGrass_01/Meadow_Grass_01_Var5_Prefab.prefab",
+                "Assets/Viking Village/Book of the Dead/Vegetation/MeadowGrass_01/Meadow_Grass_01_Var6_Prefab.prefab",
+                "Assets/Supercyan Free Forest Sample/Prefabs/High Quality/Foliage/Grass/forestpack_foliage_grassPatch_small_1.prefab",
+                "Assets/Supercyan Free Forest Sample/Prefabs/High Quality/Foliage/Grass/forestpack_foliage_grassPatch_small_2.prefab",
+                "Assets/Viking Village/Book of the Dead/Vegetation/Ferns/Fern_var01_Prefab.prefab",
+                "Assets/Viking Village/Book of the Dead/Vegetation/Ferns/Fern_var02_Prefab.prefab",
+                "Assets/Viking Village/Book of the Dead/Vegetation/Ferns/Fern_var03_Prefab.prefab",
+                "Assets/Viking Village/Book of the Dead/Vegetation/GreenBush/GreenBush_Var01_Prefab.prefab",
+                "Assets/Viking Village/Book of the Dead/Vegetation/BroadleafShrub_01/Broadleaf_Shrub_01_Var4_Prefab.prefab",
+                "Assets/Viking Village/Book of the Dead/Vegetation/Plant_Perennials/PH_Plant_Perennials_a2_1x1x2_A_Prefab.prefab",
+                "Assets/Supercyan Free Forest Sample/Prefabs/High Quality/Tree/Treestump/forestpack_tree_stump_1.prefab",
+                $"{KenneyNatureKitDir}/rock.fbx",
+                $"{KenneyNatureKitDir}/rock_smallA.fbx",
+                $"{KenneyNatureKitDir}/rock_smallB.fbx",
+                $"{KenneyNatureKitDir}/rock_largeA.fbx",
+                $"{KenneyNatureKitDir}/rock_largeB.fbx"
             };
 
-            List<GameObject> props = LoadKenneyModels(propNames);
+            List<GameObject> props = LoadWeightedUndergrowthPrefabs(propPaths);
             if (props.Count == 0)
             {
-                Debug.LogWarning("[GrauwaldSceneBuilder] No Kenney undergrowth models found in " + KenneyNatureKitDir);
+                Debug.LogWarning("[GrauwaldSceneBuilder] No realistic undergrowth prefabs found.");
                 return;
             }
 
@@ -461,7 +455,6 @@ namespace Ashenveil.World.Editor
                 float targetHeight = RandomUndergrowthHeight(prefab.name, rng);
                 float extraScale = RandomRange(rng, 0.8f, 1.5f);
                 GameObject prop = InstantiateFittedKenneyPrefab(prefab, undergrowth.transform, pos, yaw, targetHeight, extraScale, out _);
-                ApplyGothicFoliageMaterials(prop);
 
                 if (ShouldAddUndergrowthCollider(prefab.name))
                 {
@@ -491,6 +484,57 @@ namespace Ashenveil.World.Editor
             }
 
             return list;
+        }
+
+        private static List<GameObject> LoadPrefabs(string[] paths)
+        {
+            var list = new List<GameObject>();
+            for (int i = 0; i < paths.Length; i++)
+            {
+                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(paths[i]);
+                if (prefab != null)
+                {
+                    list.Add(prefab);
+                }
+            }
+
+            return list;
+        }
+
+        private static List<GameObject> LoadWeightedUndergrowthPrefabs(string[] paths)
+        {
+            var list = new List<GameObject>();
+            for (int i = 0; i < paths.Length; i++)
+            {
+                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(paths[i]);
+                if (prefab == null)
+                {
+                    continue;
+                }
+
+                int weight = GetUndergrowthWeight(prefab.name);
+                for (int copy = 0; copy < weight; copy++)
+                {
+                    list.Add(prefab);
+                }
+            }
+
+            return list;
+        }
+
+        private static int GetUndergrowthWeight(string name)
+        {
+            if (ContainsAny(name, "grass", "meadow"))
+            {
+                return 5;
+            }
+
+            if (ContainsAny(name, "fern"))
+            {
+                return 3;
+            }
+
+            return 1;
         }
 
         private static List<GameObject> LoadKenneyModels(string[] names)
@@ -570,9 +614,14 @@ namespace Ashenveil.World.Editor
                 return RandomRange(rng, 0.4f, 0.8f);
             }
 
-            if (name.IndexOf("bush", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            if (ContainsAny(name, "bush", "shrub"))
             {
                 return RandomRange(rng, 0.8f, 1.6f);
+            }
+
+            if (ContainsAny(name, "fern", "perennial"))
+            {
+                return RandomRange(rng, 0.25f, 0.6f);
             }
 
             if (name.IndexOf("stump", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
