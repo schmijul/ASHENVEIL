@@ -3,37 +3,70 @@ using NUnit.Framework;
 
 namespace Ashenveil.Tests.EditMode
 {
-    public class StaminaModelTests
+    /// <summary>
+    /// EditMode tests for stamina logic.
+    /// </summary>
+    public sealed class StaminaModelTests
     {
+        /// <summary>
+        /// Verifies sprint drain, regeneration delay, and later regeneration.
+        /// </summary>
         [Test]
-        public void TryConsume_InsufficientStamina_ReturnsFalseAndPreservesValue()
+        public void Update_SprintThenRest_DrainsWaitsThenRegenerates()
         {
-            var stamina = new StaminaModel(100f, 4f, 15f, 1f, 5f);
+            StaminaModel.Settings settings = StaminaModel.Settings.Default;
+            settings.MaxStamina = 10f;
+            settings.SprintDrainPerSecond = 5f;
+            settings.RegenDelay = 1f;
+            settings.RegenPerSecond = 4f;
+            StaminaModel model = new StaminaModel(settings);
 
-            bool result = stamina.TryConsume(10f);
+            model.Update(true, 1f);
+            Assert.That(model.CurrentStamina, Is.EqualTo(5f).Within(0.001f));
 
-            Assert.That(result, Is.False);
-            Assert.That(stamina.CurrentStamina, Is.EqualTo(4f).Within(0.0001f));
+            model.Update(false, 0.5f);
+            Assert.That(model.CurrentStamina, Is.EqualTo(5f).Within(0.001f));
+
+            model.Update(false, 0.5f);
+            model.Update(false, 0.5f);
+            Assert.That(model.CurrentStamina, Is.EqualTo(7f).Within(0.001f));
         }
 
+        /// <summary>
+        /// Verifies discrete stamina costs succeed or fail based on current stamina.
+        /// </summary>
         [Test]
-        public void Tick_BeforeRegenDelay_DoesNotRestoreStamina()
+        public void Spend_DodgeAndAttackCosts_RequireAvailableStamina()
         {
-            var stamina = new StaminaModel(100f, 50f, 15f, 1f, 5f);
+            StaminaModel.Settings settings = StaminaModel.Settings.Default;
+            settings.MaxStamina = 30f;
+            settings.DodgeCost = 20f;
+            settings.LightAttackCost = 10f;
+            settings.HeavyAttackCost = 25f;
+            StaminaModel model = new StaminaModel(settings);
 
-            stamina.Tick(0.5f);
-
-            Assert.That(stamina.CurrentStamina, Is.EqualTo(50f).Within(0.0001f));
+            Assert.That(model.TrySpendDodge(), Is.True);
+            Assert.That(model.TrySpendLightAttack(), Is.True);
+            Assert.That(model.TrySpendHeavyAttack(), Is.False);
+            Assert.That(model.CurrentStamina, Is.EqualTo(0f).Within(0.001f));
         }
 
+        /// <summary>
+        /// Verifies sprinting cannot start when stamina is empty.
+        /// </summary>
         [Test]
-        public void Tick_AfterRegenDelay_RestoresAndClampsStamina()
+        public void Update_EmptyStamina_CannotSprint()
         {
-            var stamina = new StaminaModel(100f, 50f, 15f, 1f, 5f);
+            StaminaModel.Settings settings = StaminaModel.Settings.Default;
+            settings.MaxStamina = 10f;
+            settings.MinimumSprintStamina = 0f;
+            StaminaModel model = new StaminaModel(settings);
+            model.Spend(10f);
 
-            stamina.Tick(2f);
+            StaminaModel.State state = model.Update(true, 1f);
 
-            Assert.That(stamina.CurrentStamina, Is.EqualTo(65f).Within(0.0001f));
+            Assert.That(model.CanSprint, Is.False);
+            Assert.That(state.IsSprinting, Is.False);
         }
     }
 }

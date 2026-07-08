@@ -1,184 +1,301 @@
+using System;
+using Ashenveil.Core;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace Ashenveil.Player
 {
     /// <summary>
-    /// Third-person movement using CharacterController and camera-relative input.
-    /// Referenced GDD sections: 5.2
+    /// CharacterController adapter for player movement input and stamina-gated actions.
+    /// Referenced GDD section: Kernsysteme / Movement/Camera.
     /// </summary>
     [RequireComponent(typeof(CharacterController))]
-    public class PlayerMovementController : MonoBehaviour
+    public sealed class PlayerMovementController : MonoBehaviour
     {
+        [Header("Configuration")]
+        [SerializeField] private PlayerInputConfig _inputConfig;
+
         [Header("References")]
-        [SerializeField] private PlayerInputHandler _inputHandler;
-        [SerializeField] private PlayerStats _playerStats;
-        [SerializeField] private StaminaSystem _staminaSystem;
         [SerializeField] private Transform _cameraTransform;
+        [SerializeField] private PlayerVitals _vitals;
 
         private CharacterController _characterController;
-        private Vector2 _moveInput;
-        private bool _jumpQueued;
-        private float _verticalVelocity;
-        private bool _movementLocked;
-        private float _movementSpeedMultiplier = 1f;
+        private PlayerMovementModel _movementModel;
+        private InputAction _moveAction;
+        private InputAction _lookAction;
+        private InputAction _sprintAction;
+        private InputAction _jumpAction;
+        private InputAction _dodgeAction;
+        private InputAction _interactAction;
+        private InputAction _inventoryAction;
+        private InputAction _lightAttackAction;
+        private InputAction _blockOrHeavyAction;
+        private InputAction _aetherModeAction;
+        private InputAction _lootAction;
+        private PlayerContext _playerContext;
+
+        /// <summary>
+        /// Raised when the interact input is pressed.
+        /// </summary>
+        public event Action<PlayerContext> InteractPressed;
+
+        /// <summary>
+        /// Raised when mouse look input changes. Args: look delta.
+        /// </summary>
+        public event Action<Vector2> LookChanged;
+
+        /// <summary>
+        /// Raised when the inventory input is pressed.
+        /// </summary>
+        public event Action InventoryPressed;
+
+        /// <summary>
+        /// Raised when the light attack input is pressed and stamina is available.
+        /// </summary>
+        public event Action LightAttackPressed;
+
+        /// <summary>
+        /// Raised when block or heavy input is pressed and stamina is available.
+        /// </summary>
+        public event Action BlockOrHeavyPressed;
+
+        /// <summary>
+        /// Raised when aether mode input is pressed.
+        /// </summary>
+        public event Action AetherModePressed;
+
+        /// <summary>
+        /// Raised when loot input is pressed.
+        /// </summary>
+        public event Action LootPressed;
+
+        /// <summary>
+        /// Current player context for interaction systems.
+        /// </summary>
+        public PlayerContext Context => _playerContext;
 
         private void Awake()
         {
             if (!TryGetComponent(out _characterController))
             {
-                Debug.LogError($"{nameof(PlayerMovementController)} on {name} requires a {nameof(CharacterController)}.");
+                Debug.LogError("PlayerMovementController requires a CharacterController.", this);
                 enabled = false;
                 return;
             }
 
-            ResolveReferences();
-            ApplyStatsToCharacterController();
+            if (_cameraTransform == null)
+            {
+                Debug.LogError("PlayerMovementController requires a camera transform reference.", this);
+                enabled = false;
+                return;
+            }
+
+            if (_vitals == null && !TryGetComponent(out _vitals))
+            {
+                Debug.LogError("PlayerMovementController requires a PlayerVitals reference.", this);
+                enabled = false;
+                return;
+            }
+
+            PlayerMovementModel.Settings settings = _inputConfig != null
+                ? _inputConfig.ToMovementSettings()
+                : PlayerMovementModel.Settings.Default;
+            _movementModel = new PlayerMovementModel(settings);
+            _playerContext = new PlayerContext(transform, this, _vitals, _vitals.Stamina);
+            CreateInputActions();
         }
 
         private void OnEnable()
         {
-            if (_inputHandler != null)
-            {
-                _inputHandler.MoveInputChanged += HandleMoveInputChanged;
-                _inputHandler.JumpPressed += HandleJumpPressed;
-            }
+            SetInputEnabled(true);
+        }
+
+        private void OnDisable()
+        {
+            SetInputEnabled(false);
+        }
+
+        private void OnDestroy()
+        {
+            DisposeInputActions();
         }
 
         private void Update()
         {
-            if (_characterController == null || _playerStats == null)
+            if (_movementModel == null || _characterController == null)
             {
                 return;
             }
 
             float deltaTime = Time.deltaTime;
-            bool grounded = CheckGrounded();
-
-            if (grounded && _verticalVelocity < 0f)
+            Vector2 moveInput = _moveAction.ReadValue<Vector2>();
+            Vector2 lookInput = _lookAction.ReadValue<Vector2>();
+            Vector3 moveDirection = GetCameraRelativeMove(moveInput);
+            if (lookInput.sqrMagnitude > 0.001f)
             {
-                _verticalVelocity = -2f;
+                LookChanged?.Invoke(lookInput);
             }
 
-            Vector3 cameraForward = _cameraTransform != null ? _cameraTransform.forward : transform.forward;
-            Vector3 cameraRight = _cameraTransform != null ? _cameraTransform.right : transform.right;
-            Vector2 movementInput = _movementLocked ? Vector2.zero : _moveInput;
-            Vector3 moveDirection = PlayerMovementMath.GetCameraRelativeMovement(movementInput, cameraForward, cameraRight);
-            float moveMagnitude = Mathf.Clamp01(movementInput.magnitude);
-            bool sprinting = !_movementLocked && _staminaSystem != null && _staminaSystem.CanSprint && moveMagnitude > 0.01f && _inputHandler != null && _inputHandler.IsSprinting;
+            bool wantsSprint = _sprintAction.IsPressed() && moveInput.sqrMagnitude > 0.01f;
+            StaminaModel.State staminaState = _vitals.UpdateStamina(wantsSprint, deltaTime);
+            bool dodgePressed = _dodgeAction.WasPressedThisFrame()
+                && moveInput.sqrMagnitude > 0.01f
+                && !_movementModel.IsDodging
+                && _vitals.Stamina.TrySpendDodge();
 
-            float speed = PlayerMovementMath.GetMoveSpeed(sprinting, _staminaSystem == null || _staminaSystem.CanSprint, _playerStats.WalkSpeed, _playerStats.SprintSpeed, movementInput) * _movementSpeedMultiplier;
-            if (_movementLocked)
-            {
-                speed = 0f;
-            }
-
-            if (sprinting && _staminaSystem != null)
-            {
-                if (!_staminaSystem.TryConsumeSprint(deltaTime))
+            PlayerMovementModel.State movementState = _movementModel.Tick(
+                new PlayerMovementModel.Input
                 {
-                    speed = _playerStats.WalkSpeed;
-                }
-            }
+                    MoveDirection = moveDirection,
+                    SprintHeld = staminaState.IsSprinting,
+                    JumpPressed = _jumpAction.WasPressedThisFrame(),
+                    DodgePressed = dodgePressed,
+                    IsGrounded = _characterController.isGrounded
+                },
+                deltaTime);
 
-            if (_jumpQueued && grounded && !_movementLocked)
-            {
-                _verticalVelocity = PlayerMovementMath.CalculateJumpVelocity(_playerStats.Gravity, _playerStats.JumpHeight);
-            }
-
-            _jumpQueued = false;
-            _verticalVelocity += _playerStats.Gravity * deltaTime;
-
-            Vector3 horizontalVelocity = moveDirection * speed;
-            Vector3 totalVelocity = horizontalVelocity + (Vector3.up * _verticalVelocity);
-            _characterController.Move(totalVelocity * deltaTime);
-
-            if (moveDirection.sqrMagnitude > 0.0001f)
-            {
-                transform.rotation = Quaternion.LookRotation(moveDirection, Vector3.up);
-            }
+            _characterController.Move(movementState.Velocity * deltaTime);
+            transform.rotation = Quaternion.Euler(0f, movementState.Yaw, 0f);
         }
 
-        private void OnDisable()
+        private Vector3 GetCameraRelativeMove(Vector2 moveInput)
         {
-            if (_inputHandler != null)
-            {
-                _inputHandler.MoveInputChanged -= HandleMoveInputChanged;
-                _inputHandler.JumpPressed -= HandleJumpPressed;
-            }
+            Vector3 forward = _cameraTransform.forward;
+            Vector3 right = _cameraTransform.right;
+            forward.y = 0f;
+            right.y = 0f;
+            forward = forward.sqrMagnitude > 0f ? forward.normalized : transform.forward;
+            right = right.sqrMagnitude > 0f ? right.normalized : transform.right;
+            return forward * moveInput.y + right * moveInput.x;
         }
 
-        private void OnValidate()
+        private void CreateInputActions()
         {
-            ResolveReferences();
+            _moveAction = new InputAction("Move", InputActionType.Value, expectedControlType: "Vector2");
+            _moveAction.AddCompositeBinding("2DVector")
+                .With("Up", "<Keyboard>/w")
+                .With("Down", "<Keyboard>/s")
+                .With("Left", "<Keyboard>/a")
+                .With("Right", "<Keyboard>/d");
+
+            _lookAction = new InputAction("Look", InputActionType.Value, "<Mouse>/delta", expectedControlType: "Vector2");
+            _sprintAction = new InputAction("Sprint", InputActionType.Button, "<Keyboard>/leftShift");
+            _jumpAction = new InputAction("Jump", InputActionType.Button, "<Keyboard>/space");
+            _dodgeAction = new InputAction("Dodge", InputActionType.Button);
+            _dodgeAction.AddBinding("<Keyboard>/leftAlt");
+            _dodgeAction.AddBinding("<Keyboard>/leftCtrl");
+            _interactAction = new InputAction("Interact", InputActionType.Button, "<Keyboard>/e");
+            _inventoryAction = new InputAction("Inventory", InputActionType.Button, "<Keyboard>/tab");
+            _lightAttackAction = new InputAction("LightAttack", InputActionType.Button, "<Mouse>/leftButton");
+            _blockOrHeavyAction = new InputAction("BlockOrHeavy", InputActionType.Button, "<Mouse>/rightButton");
+            _aetherModeAction = new InputAction("AetherMode", InputActionType.Button, "<Keyboard>/q");
+            _lootAction = new InputAction("Loot", InputActionType.Button, "<Keyboard>/f");
+
+            _interactAction.performed += OnInteract;
+            _inventoryAction.performed += OnInventory;
+            _lightAttackAction.performed += OnLightAttack;
+            _blockOrHeavyAction.performed += OnBlockOrHeavy;
+            _aetherModeAction.performed += OnAetherMode;
+            _lootAction.performed += OnLoot;
         }
 
-        private void ResolveReferences()
+        private void SetInputEnabled(bool enabledState)
         {
-            if (_playerStats == null)
-            {
-                _playerStats = PlayerStats.CreateRuntimeDefaults();
-            }
-
-            if (_staminaSystem == null && TryGetComponent(out StaminaSystem staminaSystem))
-            {
-                _staminaSystem = staminaSystem;
-            }
-        }
-
-        private void ApplyStatsToCharacterController()
-        {
-            if (_characterController == null || _playerStats == null)
+            if (_moveAction == null)
             {
                 return;
             }
 
-            _characterController.height = _playerStats.CharacterHeight;
-            _characterController.radius = _playerStats.CharacterRadius;
-            _characterController.center = new Vector3(0f, _playerStats.CharacterHeight * 0.5f, 0f);
-            _characterController.slopeLimit = _playerStats.SlopeLimit;
-            _characterController.stepOffset = _playerStats.StepOffset;
-        }
-
-        private bool CheckGrounded()
-        {
-            Vector3 origin = transform.position + Vector3.up * 0.1f;
-            float castDistance = _playerStats.GroundCheckDistance;
-            return Physics.SphereCast(
-                origin,
-                _playerStats.GroundCheckRadius,
-                Vector3.down,
-                out _,
-                castDistance,
-                _playerStats.GroundLayers,
-                QueryTriggerInteraction.Ignore);
-        }
-
-        private void HandleMoveInputChanged(Vector2 value)
-        {
-            _moveInput = value;
-        }
-
-        private void HandleJumpPressed()
-        {
-            _jumpQueued = true;
-        }
-
-        public bool IsMovementLocked => _movementLocked;
-
-        public float MovementSpeedMultiplier => _movementSpeedMultiplier;
-
-        public void SetMovementLocked(bool locked)
-        {
-            _movementLocked = locked;
-            if (locked)
+            if (enabledState)
             {
-                _jumpQueued = false;
+                _moveAction.Enable();
+                _lookAction.Enable();
+                _sprintAction.Enable();
+                _jumpAction.Enable();
+                _dodgeAction.Enable();
+                _interactAction.Enable();
+                _inventoryAction.Enable();
+                _lightAttackAction.Enable();
+                _blockOrHeavyAction.Enable();
+                _aetherModeAction.Enable();
+                _lootAction.Enable();
+                return;
+            }
+
+            _moveAction.Disable();
+            _lookAction.Disable();
+            _sprintAction.Disable();
+            _jumpAction.Disable();
+            _dodgeAction.Disable();
+            _interactAction.Disable();
+            _inventoryAction.Disable();
+            _lightAttackAction.Disable();
+            _blockOrHeavyAction.Disable();
+            _aetherModeAction.Disable();
+            _lootAction.Disable();
+        }
+
+        private void DisposeInputActions()
+        {
+            if (_moveAction == null)
+            {
+                return;
+            }
+
+            _interactAction.performed -= OnInteract;
+            _inventoryAction.performed -= OnInventory;
+            _lightAttackAction.performed -= OnLightAttack;
+            _blockOrHeavyAction.performed -= OnBlockOrHeavy;
+            _aetherModeAction.performed -= OnAetherMode;
+            _lootAction.performed -= OnLoot;
+
+            _moveAction.Dispose();
+            _lookAction.Dispose();
+            _sprintAction.Dispose();
+            _jumpAction.Dispose();
+            _dodgeAction.Dispose();
+            _interactAction.Dispose();
+            _inventoryAction.Dispose();
+            _lightAttackAction.Dispose();
+            _blockOrHeavyAction.Dispose();
+            _aetherModeAction.Dispose();
+            _lootAction.Dispose();
+        }
+
+        private void OnInteract(InputAction.CallbackContext context)
+        {
+            InteractPressed?.Invoke(_playerContext);
+        }
+
+        private void OnInventory(InputAction.CallbackContext context)
+        {
+            InventoryPressed?.Invoke();
+        }
+
+        private void OnLightAttack(InputAction.CallbackContext context)
+        {
+            if (_vitals.Stamina.TrySpendLightAttack())
+            {
+                LightAttackPressed?.Invoke();
             }
         }
 
-        public void SetMovementSpeedMultiplier(float multiplier)
+        private void OnBlockOrHeavy(InputAction.CallbackContext context)
         {
-            _movementSpeedMultiplier = Mathf.Clamp01(multiplier);
+            if (_vitals.Stamina.TrySpendHeavyAttack())
+            {
+                BlockOrHeavyPressed?.Invoke();
+            }
+        }
+
+        private void OnAetherMode(InputAction.CallbackContext context)
+        {
+            AetherModePressed?.Invoke();
+        }
+
+        private void OnLoot(InputAction.CallbackContext context)
+        {
+            LootPressed?.Invoke();
         }
     }
 }

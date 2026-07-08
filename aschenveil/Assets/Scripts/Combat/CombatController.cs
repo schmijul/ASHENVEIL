@@ -1,430 +1,149 @@
 using System;
-using UnityEngine;
+using Ashenveil.Core;
 using Ashenveil.Player;
+using UnityEngine;
 
 namespace Ashenveil.Combat
 {
     /// <summary>
-    /// Player-facing combat controller that coordinates stamina, runtime state, animator triggers, and weapon hitboxes.
+    /// MonoBehaviour adapter that connects player attack events to the combat model and weapon hitbox.
+    /// Referenced GDD section: Kernsysteme / Combat.
     /// </summary>
-    public class CombatController : MonoBehaviour
+    public sealed class CombatController : MonoBehaviour
     {
+        [Header("Configuration")]
+        [SerializeField] private WeaponDefinition _weaponDefinition;
+
         [Header("References")]
-        [SerializeField] private StaminaSystem _staminaSystem;
-        [SerializeField] private WeaponData _weaponData;
+        [SerializeField] private PlayerMovementController _movementController;
         [SerializeField] private WeaponHitbox _weaponHitbox;
-        [SerializeField] private Animator _animator;
+        [SerializeField] private Transform _damageOrigin;
 
-        [Header("Animation Triggers")]
-        [SerializeField] private string _blockStartTrigger = "BlockStart";
-        [SerializeField] private string _blockEndTrigger = "BlockEnd";
-        [SerializeField] private string _dodgeTrigger = "Dodge";
+        private CombatModel _model;
+        private bool _hitboxActive;
+        private Func<DamageInfo, DamageInfo> _damageModifier;
 
-        private WeaponData _runtimeWeaponData;
-        private CombatRuntimeState _runtimeState;
-        private AttackStepDefinition _currentAttackStep;
-        private Vector2 _movementInput;
-        private CombatActionKind _lastReportedState = CombatActionKind.Idle;
+        /// <summary>
+        /// Current deterministic combat model.
+        /// </summary>
+        public CombatModel Model => _model;
 
-        public event Action<CombatActionKind> CombatStateChanged;
-        public event Action<AttackStepDefinition> AttackStarted;
-        public event Action<AttackStepDefinition> AttackEnded;
-        public event Action BlockStarted;
-        public event Action BlockEnded;
-        public event Action<DodgeSettings, Vector2> DodgeStarted;
-        public event Action DodgeEnded;
-        public event Action<IDamageable, float, DamageType> DamageApplied;
-
-        public WeaponData WeaponData => EffectiveWeaponData;
-
-        public CombatActionKind CurrentState => _runtimeState != null ? _runtimeState.CurrentAction : CombatActionKind.Idle;
-
-        public bool IsBlocking => _runtimeState != null && _runtimeState.IsBlocking;
-
-        public bool IsDodging => _runtimeState != null && _runtimeState.IsDodging;
-
-        public bool IsAttacking => _runtimeState != null && _runtimeState.IsAttacking;
-
-        public AttackStepDefinition CurrentAttackStep => _currentAttackStep;
-
-        public float AnimationSpeedMultiplier => EffectiveWeaponData != null ? EffectiveWeaponData.AttackSpeed : 1f;
+        /// <summary>
+        /// Installs an optional post-processor applied to each swing's damage payload
+        /// just before the hitbox opens. Used by the aether system to convert a swing
+        /// into an empowered <see cref="DamageType.Aether"/> strike. Pass null to clear.
+        /// </summary>
+        public void SetDamageModifier(Func<DamageInfo, DamageInfo> modifier)
+        {
+            _damageModifier = modifier;
+        }
 
         private void Awake()
         {
-            ResolveReferences();
-            InitializeRuntimeState();
-        }
-
-        private void OnEnable()
-        {
-            ResolveReferences();
-            InitializeRuntimeState();
-
-            if (_weaponHitbox != null)
+            if (_weaponDefinition == null)
             {
-                _weaponHitbox.TargetHit += HandleWeaponHitboxTargetHit;
-            }
-
-            PublishCombatStateIfChanged();
-        }
-
-        private void Update()
-        {
-            if (_runtimeState == null)
-            {
+                Debug.LogError("CombatController requires a WeaponDefinition.", this);
+                enabled = false;
                 return;
             }
 
-            _runtimeState.Tick(Time.deltaTime);
-            PublishCombatStateIfChanged();
-        }
-
-        private void OnDisable()
-        {
-            if (_weaponHitbox != null)
+            if (_movementController == null && !TryGetComponent(out _movementController))
             {
-                _weaponHitbox.TargetHit -= HandleWeaponHitboxTargetHit;
-                _weaponHitbox.EndSwing();
-            }
-
-            _runtimeState?.Reset();
-            _currentAttackStep = null;
-            _lastReportedState = CombatActionKind.Idle;
-        }
-
-        private void OnValidate()
-        {
-            ResolveReferences();
-        }
-
-        public void SetMovementInput(Vector2 movementInput)
-        {
-            _movementInput = movementInput;
-        }
-
-        public bool RequestLightAttack()
-        {
-            if (_runtimeState == null)
-            {
-                return false;
-            }
-
-            float currentStamina = GetCurrentStamina();
-            if (!_runtimeState.TryBeginLightAttack(currentStamina, out AttackStepDefinition attackStep, out float staminaCost))
-            {
-                return false;
-            }
-
-            if (!ConsumeStamina(staminaCost))
-            {
-                return false;
-            }
-
-            _currentAttackStep = attackStep;
-            SetAnimatorTrigger(ResolveAttackTrigger(attackStep, _runtimeState.CurrentComboStepIndex));
-            AttackStarted?.Invoke(attackStep);
-            PublishCombatStateIfChanged();
-            return true;
-        }
-
-        public bool RequestHeavyAttack()
-        {
-            if (_runtimeState == null)
-            {
-                return false;
-            }
-
-            float currentStamina = GetCurrentStamina();
-            if (!_runtimeState.TryBeginHeavyAttack(currentStamina, out AttackStepDefinition attackStep, out float staminaCost))
-            {
-                return false;
-            }
-
-            if (!ConsumeStamina(staminaCost))
-            {
-                return false;
-            }
-
-            _currentAttackStep = attackStep;
-            SetAnimatorTrigger(string.IsNullOrWhiteSpace(attackStep.AnimationTrigger) ? "HeavyAttack" : attackStep.AnimationTrigger);
-            AttackStarted?.Invoke(attackStep);
-            PublishCombatStateIfChanged();
-            return true;
-        }
-
-        public bool BeginBlock()
-        {
-            bool wasBlocking = IsBlocking;
-            bool wasAttacking = IsAttacking;
-            if (_runtimeState == null || !_runtimeState.TryBeginBlock())
-            {
-                return false;
-            }
-
-            if (wasAttacking)
-            {
-                CancelCurrentAttackVisuals();
-            }
-
-            if (!wasBlocking)
-            {
-                SetAnimatorTrigger(_blockStartTrigger);
-                BlockStarted?.Invoke();
-            }
-
-            PublishCombatStateIfChanged();
-            return true;
-        }
-
-        public bool EndBlock()
-        {
-            if (_runtimeState == null || !_runtimeState.EndBlock())
-            {
-                return false;
-            }
-
-            SetAnimatorTrigger(_blockEndTrigger);
-            BlockEnded?.Invoke();
-            PublishCombatStateIfChanged();
-            return true;
-        }
-
-        public bool RequestDodge()
-        {
-            bool wasBlocking = IsBlocking;
-            bool wasAttacking = IsAttacking;
-
-            if (_runtimeState == null)
-            {
-                return false;
-            }
-
-            float currentStamina = GetCurrentStamina();
-            if (!_runtimeState.TryBeginDodge(currentStamina, out DodgeSettings dodgeSettings, out float staminaCost))
-            {
-                return false;
-            }
-
-            if (!ConsumeStamina(staminaCost))
-            {
-                return false;
-            }
-
-            if (wasBlocking)
-            {
-                SetAnimatorTrigger(_blockEndTrigger);
-                BlockEnded?.Invoke();
-            }
-
-            if (wasAttacking)
-            {
-                CancelCurrentAttackVisuals();
-            }
-
-            SetAnimatorTrigger(_dodgeTrigger);
-            DodgeStarted?.Invoke(dodgeSettings, ResolveDodgeDirection());
-            PublishCombatStateIfChanged();
-            return true;
-        }
-
-        public void OnWeaponSwingBegin()
-        {
-            if (_weaponHitbox != null)
-            {
-                _weaponHitbox.BeginSwing();
-            }
-        }
-
-        public void OnWeaponSwingEnd()
-        {
-            if (_weaponHitbox != null)
-            {
-                _weaponHitbox.EndSwing();
-            }
-
-            if (_currentAttackStep != null)
-            {
-                AttackStepDefinition endedStep = _currentAttackStep;
-                _currentAttackStep = null;
-                AttackEnded?.Invoke(endedStep);
-            }
-        }
-
-        public void OnDodgeEnd()
-        {
-            DodgeEnded?.Invoke();
-            PublishCombatStateIfChanged();
-        }
-
-        private void CancelCurrentAttackVisuals()
-        {
-            if (_weaponHitbox != null)
-            {
-                _weaponHitbox.EndSwing();
-            }
-
-            if (_currentAttackStep != null)
-            {
-                AttackStepDefinition endedStep = _currentAttackStep;
-                _currentAttackStep = null;
-                AttackEnded?.Invoke(endedStep);
-            }
-        }
-
-        private WeaponData EffectiveWeaponData
-        {
-            get
-            {
-                if (_weaponData != null)
-                {
-                    return _weaponData;
-                }
-
-                if (_runtimeWeaponData == null)
-                {
-                    _runtimeWeaponData = WeaponData.CreateRuntimeDefaults();
-                }
-
-                return _runtimeWeaponData;
-            }
-        }
-
-        private void ResolveReferences()
-        {
-            if (_staminaSystem == null)
-            {
-                TryGetComponent(out _staminaSystem);
+                Debug.LogError("CombatController requires a PlayerMovementController reference.", this);
+                enabled = false;
+                return;
             }
 
             if (_weaponHitbox == null)
             {
-                _weaponHitbox = GetComponentInChildren<WeaponHitbox>(true);
-            }
-
-            if (_animator == null)
-            {
-                TryGetComponent(out _animator);
-            }
-        }
-
-        private void InitializeRuntimeState()
-        {
-            WeaponData weaponData = EffectiveWeaponData;
-            if (weaponData == null)
-            {
-                _runtimeState = null;
+                Debug.LogError("CombatController requires a WeaponHitbox reference.", this);
+                enabled = false;
                 return;
             }
 
-            if (_runtimeState == null || _runtimeWeaponData != weaponData)
+            if (_damageOrigin == null)
             {
-                _runtimeState = new CombatRuntimeState(
-                    weaponData.LightAttackCombo,
-                    weaponData.HeavyAttack,
-                    weaponData.BlockSettings,
-                    weaponData.DodgeSettings);
-                _runtimeWeaponData = weaponData;
-                _lastReportedState = _runtimeState.CurrentAction;
+                _damageOrigin = transform;
             }
+
+            _model = new CombatModel(_weaponDefinition.ToSettings());
         }
 
-        private void HandleWeaponHitboxTargetHit(IDamageable target, Collider collider)
+        private void OnEnable()
         {
-            if (_runtimeState == null || target == null || _currentAttackStep == null || _weaponData == null && _runtimeWeaponData == null)
+            if (_movementController == null)
             {
                 return;
             }
 
-            WeaponData weaponData = EffectiveWeaponData;
-            if (weaponData == null)
+            _movementController.LightAttackPressed += OnLightAttackPressed;
+            _movementController.BlockOrHeavyPressed += OnBlockOrHeavyPressed;
+        }
+
+        private void OnDisable()
+        {
+            if (_movementController != null)
+            {
+                _movementController.LightAttackPressed -= OnLightAttackPressed;
+                _movementController.BlockOrHeavyPressed -= OnBlockOrHeavyPressed;
+            }
+
+            if (_weaponHitbox != null)
+            {
+                _weaponHitbox.EndSwing();
+            }
+        }
+
+        private void Update()
+        {
+            if (_model == null)
             {
                 return;
             }
 
-            float finalDamage = DamageResolver.CalculateFinalDamage(weaponData, _currentAttackStep, target.Armor);
-            DamageType damageType = ResolveDamageType(weaponData.Type);
-            target.TakeDamage(finalDamage, damageType);
-            DamageApplied?.Invoke(target, finalDamage, damageType);
+            CombatModel.State state = _model.Tick(Time.deltaTime);
+            if (state.IsAttackActive && !_hitboxActive)
+            {
+                DamageInfo damage = _model.CreateDamageInfo(_damageOrigin.position);
+                if (_damageModifier != null)
+                {
+                    damage = _damageModifier(damage);
+                }
+
+                _weaponHitbox.BeginSwing(damage);
+                _hitboxActive = true;
+            }
+            else if (!state.IsAttackActive && _hitboxActive)
+            {
+                _weaponHitbox.EndSwing();
+                _hitboxActive = false;
+            }
         }
 
-        private float GetCurrentStamina()
+        /// <summary>
+        /// Allows future input adapters to update block hold state without changing the model.
+        /// </summary>
+        public void SetBlocking(bool isBlocking)
         {
-            return _staminaSystem != null ? _staminaSystem.CurrentStamina : 0f;
+            _model?.SetBlocking(isBlocking);
         }
 
-        private bool ConsumeStamina(float amount)
+        /// <summary>
+        /// Allows movement adapters to forward dodge invulnerability state.
+        /// </summary>
+        public void SetDodgeIFrames(bool hasDodgeIFrames)
         {
-            if (_staminaSystem == null)
-            {
-                return false;
-            }
-
-            return _staminaSystem.TryConsume(amount);
+            _model?.SetDodgeIFrames(hasDodgeIFrames);
         }
 
-        private Vector2 ResolveDodgeDirection()
+        private void OnLightAttackPressed()
         {
-            if (_movementInput.sqrMagnitude > 0.0001f)
-            {
-                return _movementInput.normalized;
-            }
-
-            return Vector2.up;
+            _model?.TryStartPrepaidLightAttack();
         }
 
-        private void PublishCombatStateIfChanged()
+        private void OnBlockOrHeavyPressed()
         {
-            if (_runtimeState == null)
-            {
-                return;
-            }
-
-            CombatActionKind currentState = _runtimeState.CurrentAction;
-            if (currentState == _lastReportedState)
-            {
-                return;
-            }
-
-            _lastReportedState = currentState;
-            CombatStateChanged?.Invoke(currentState);
-        }
-
-        private void SetAnimatorTrigger(string triggerName)
-        {
-            if (_animator == null || string.IsNullOrWhiteSpace(triggerName))
-            {
-                return;
-            }
-
-            _animator.SetTrigger(triggerName);
-        }
-
-        private static string ResolveAttackTrigger(AttackStepDefinition attackStep, int comboStep)
-        {
-            if (attackStep != null && !string.IsNullOrWhiteSpace(attackStep.AnimationTrigger))
-            {
-                return attackStep.AnimationTrigger;
-            }
-
-            return "LightAttack" + Mathf.Clamp(comboStep, 1, 3);
-        }
-
-        private static DamageType ResolveDamageType(WeaponType weaponType)
-        {
-            switch (weaponType)
-            {
-                case WeaponType.Axe:
-                case WeaponType.Sword:
-                case WeaponType.Dagger:
-                    return DamageType.Slash;
-                case WeaponType.Spear:
-                case WeaponType.Bow:
-                    return DamageType.Pierce;
-                case WeaponType.Mace:
-                    return DamageType.Blunt;
-                default:
-                    return DamageType.Physical;
-            }
+            _model?.TryStartPrepaidHeavyAttack();
         }
     }
 }

@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8cbb6274435c359cd89da306538855cf, type: 3}
+  m_Name: weapon_sword
+  m_EditorClassIdentifier: Ashenveil.Runtime::Ashenveil.Combat.WeaponDefinition
+  _damage: 22
+  _damageType: 0
+  _aetherDamageBonus: 20
+  _knockback: 3
+  _lightStaminaCost: 8
+  _heavyStaminaCost: 18
+  _maxCombatStamina: 100
+  _lightWindupDuration: 0.18
+  _lightActiveDuration: 0.12
+  _lightRecoveryDuration: 0.3
+  _heavyWindupDuration: 0.4
+  _heavyActiveDuration: 0.16
+  _heavyRecoveryDuration: 0.5
+  _range: 2.4
+  _blockDamageReduction: 0.6
+  _blockStaminaDrainPerDamage: 0.5
+  _comboWindowDuration: 0.5

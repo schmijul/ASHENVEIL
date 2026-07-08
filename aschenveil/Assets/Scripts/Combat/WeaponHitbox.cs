@@ -1,134 +1,95 @@
-using System;
 using System.Collections.Generic;
+using Ashenveil.Core;
 using UnityEngine;
 
 namespace Ashenveil.Combat
 {
     /// <summary>
-    /// Trigger-based weapon hitbox that guarantees one hit per target per swing.
+    /// Trigger hitbox that applies one damage payload once per target per swing.
+    /// Referenced GDD section: Kernsysteme / Combat.
     /// </summary>
     [RequireComponent(typeof(Collider))]
-    public class WeaponHitbox : MonoBehaviour
+    public sealed class WeaponHitbox : MonoBehaviour
     {
-        [Header("References")]
-        [SerializeField] private Collider _hitboxCollider;
-
         private readonly HashSet<IDamageable> _hitTargets = new HashSet<IDamageable>();
-        private bool _isSwingActive;
+        private Collider _collider;
+        private DamageInfo _damageInfo;
+        private bool _isActive;
 
-        public event Action<IDamageable, Collider> TargetHit;
-
-        public bool IsSwingActive => _isSwingActive;
+        /// <summary>
+        /// Whether this hitbox is inside an active swing.
+        /// </summary>
+        public bool IsActive => _isActive;
 
         private void Awake()
         {
-            ResolveReferences();
-            ConfigureCollider(false);
-        }
-
-        private void OnDisable()
-        {
-            EndSwing();
-        }
-
-        private void OnValidate()
-        {
-            ResolveReferences();
-            if (_hitboxCollider != null)
+            if (!TryGetComponent(out _collider))
             {
-                _hitboxCollider.isTrigger = true;
+                Debug.LogError("WeaponHitbox requires a Collider.", this);
+                enabled = false;
+                return;
+            }
+
+            _collider.isTrigger = true;
+            _collider.enabled = false;
+        }
+
+        /// <summary>
+        /// Starts a new swing and clears previous target memory.
+        /// </summary>
+        public void BeginSwing(DamageInfo damageInfo)
+        {
+            _damageInfo = damageInfo;
+            _hitTargets.Clear();
+            _isActive = true;
+            if (_collider != null)
+            {
+                _collider.enabled = true;
             }
         }
 
-        public void BeginSwing()
-        {
-            _hitTargets.Clear();
-            _isSwingActive = true;
-            ConfigureCollider(true);
-        }
-
+        /// <summary>
+        /// Ends the active swing.
+        /// </summary>
         public void EndSwing()
         {
-            _isSwingActive = false;
-            _hitTargets.Clear();
-            ConfigureCollider(false);
+            _isActive = false;
+            if (_collider != null)
+            {
+                _collider.enabled = false;
+            }
         }
 
         private void OnTriggerEnter(Collider other)
         {
-            TryRegisterHit(other);
+            TryDamage(other);
         }
 
         private void OnTriggerStay(Collider other)
         {
-            TryRegisterHit(other);
+            TryDamage(other);
         }
 
-        private void ResolveReferences()
+        private void TryDamage(Collider other)
         {
-            if (_hitboxCollider == null)
-            {
-                TryGetComponent(out _hitboxCollider);
-            }
-
-            if (_hitboxCollider == null)
-            {
-                _hitboxCollider = GetComponentInChildren<Collider>(true);
-            }
-        }
-
-        private void ConfigureCollider(bool enabled)
-        {
-            if (_hitboxCollider == null)
+            if (!_isActive || other == null)
             {
                 return;
             }
 
-            _hitboxCollider.isTrigger = true;
-            _hitboxCollider.enabled = enabled;
-        }
-
-        private void TryRegisterHit(Collider other)
-        {
-            if (!_isSwingActive || other == null)
+            IDamageable damageable = null;
+            if (!other.TryGetComponent(out damageable))
             {
-                return;
+                damageable = other.GetComponentInParent<IDamageable>();
             }
 
-            if (other.transform.root == transform.root)
-            {
-                return;
-            }
-
-            if (!TryResolveDamageable(other, out IDamageable damageable))
-            {
-                return;
-            }
-
-            if (damageable == null || damageable.IsDead || _hitTargets.Contains(damageable))
+            if (damageable == null || !damageable.IsAlive || _hitTargets.Contains(damageable))
             {
                 return;
             }
 
             _hitTargets.Add(damageable);
-            TargetHit?.Invoke(damageable, other);
-        }
-
-        private static bool TryResolveDamageable(Collider other, out IDamageable damageable)
-        {
-            damageable = null;
-
-            MonoBehaviour[] behaviours = other.GetComponentsInParent<MonoBehaviour>(true);
-            for (int index = 0; index < behaviours.Length; index++)
-            {
-                if (behaviours[index] is IDamageable candidate)
-                {
-                    damageable = candidate;
-                    return true;
-                }
-            }
-
-            return false;
+            damageable.TakeDamage(_damageInfo);
         }
     }
 }

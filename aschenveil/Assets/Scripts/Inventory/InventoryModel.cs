@@ -1,113 +1,172 @@
-using Ashenveil.Data;
+using System;
+using System.Collections.Generic;
+using Ashenveil.Core;
 
 namespace Ashenveil.Inventory
 {
+    /// <summary>
+    /// Deterministic slot-less inventory model with stack limits, carry weight, and gold.
+    /// Referenced GDD section: Kernsysteme / Inventar &amp; Handel.
+    /// </summary>
     public sealed class InventoryModel
     {
-        public const int DefaultColumns = 6;
-        public const int DefaultRows = 4;
+        private const float WeightTolerance = 0.0001f;
 
-        private readonly InventoryGrid _grid;
-        private readonly EquipmentLoadout _equipment;
+        private readonly List<InventoryStack> _stacks = new List<InventoryStack>();
 
-        public InventoryModel()
-            : this(DefaultColumns, DefaultRows)
+        private int _gold;
+
+        public InventoryModel(float maxCarryWeight, int initialGold = 0)
         {
+            MaxCarryWeight = Math.Max(0f, maxCarryWeight);
+            _gold = Math.Max(0, initialGold);
         }
 
-        public InventoryModel(int columns, int rows)
+        public event Action Changed;
+
+        public IReadOnlyList<InventoryStack> Stacks => _stacks;
+
+        public float MaxCarryWeight { get; }
+
+        public int Gold => _gold;
+
+        public float TotalWeight
         {
-            _grid = new InventoryGrid(columns, rows);
-            _equipment = new EquipmentLoadout();
+            get
+            {
+                float total = 0f;
+                for (int i = 0; i < _stacks.Count; i++)
+                {
+                    total += _stacks[i].Item.Weight * _stacks[i].Quantity;
+                }
+
+                return total;
+            }
         }
 
-        public InventoryGrid Grid => _grid;
-
-        public EquipmentLoadout Equipment => _equipment;
-
-        public bool TryAddItem(ItemData item, int quantity)
+        public int GetQuantity(ItemDefinition item)
         {
-            return _grid.TryAddItem(item, quantity);
+            if (item == null)
+            {
+                return 0;
+            }
+
+            int quantity = 0;
+            for (int i = 0; i < _stacks.Count; i++)
+            {
+                if (_stacks[i].Item == item)
+                {
+                    quantity += _stacks[i].Quantity;
+                }
+            }
+
+            return quantity;
         }
 
-        public int AddItem(ItemData item, int quantity)
+        public bool CanAdd(ItemDefinition item, int quantity)
         {
-            return _grid.AddItem(item, quantity);
-        }
-
-        public bool TryRemoveItem(ItemData item, int quantity)
-        {
-            return _grid.TryRemoveItem(item, quantity);
-        }
-
-        public int RemoveItem(ItemData item, int quantity)
-        {
-            return _grid.RemoveItem(item, quantity);
-        }
-
-        public int GetItemCount(ItemData item)
-        {
-            return _grid.GetItemCount(item);
-        }
-
-        public bool CanEquip(ItemData item)
-        {
-            return item != null && item.IsEquippable;
-        }
-
-        public bool TryEquip(ItemData item)
-        {
-            if (!CanEquip(item) || !_grid.ContainsItem(item, 1))
+            if (item == null || quantity <= 0)
             {
                 return false;
             }
 
-            EquipSlot slot = item.equipSlot;
-            ItemData currentItem = _equipment.GetEquippedItem(slot);
-            if (currentItem == item)
-            {
-                return false;
-            }
-
-            if (currentItem != null && !_grid.CanAddItem(currentItem, 1))
-            {
-                return false;
-            }
-
-            if (!_grid.TryRemoveItem(item, 1))
-            {
-                return false;
-            }
-
-            if (currentItem != null)
-            {
-                _grid.AddItem(currentItem, 1);
-            }
-
-            return _equipment.TryEquip(item, out _);
+            float addedWeight = item.Weight * quantity;
+            return TotalWeight + addedWeight <= MaxCarryWeight + WeightTolerance;
         }
 
-        public bool TryUnequip(EquipSlot slot)
+        public bool Add(ItemDefinition item, int quantity)
         {
-            ItemData currentItem = _equipment.GetEquippedItem(slot);
-            if (currentItem == null || !_grid.CanAddItem(currentItem, 1))
+            if (!CanAdd(item, quantity))
             {
                 return false;
             }
 
-            if (!_equipment.TryUnequip(slot, out ItemData removedItem))
+            int remaining = quantity;
+            int stackLimit = item.MaxStack;
+
+            for (int i = 0; i < _stacks.Count && remaining > 0; i++)
             {
-                return false;
+                InventoryStack stack = _stacks[i];
+                if (stack.Item != item || stack.Quantity >= stackLimit)
+                {
+                    continue;
+                }
+
+                int added = Math.Min(stackLimit - stack.Quantity, remaining);
+                _stacks[i] = new InventoryStack(item, stack.Quantity + added);
+                remaining -= added;
             }
 
-            _grid.AddItem(removedItem, 1);
+            while (remaining > 0)
+            {
+                int stackQuantity = Math.Min(stackLimit, remaining);
+                _stacks.Add(new InventoryStack(item, stackQuantity));
+                remaining -= stackQuantity;
+            }
+
+            RaiseChanged();
             return true;
         }
 
-        public void Clear()
+        public bool Remove(ItemDefinition item, int quantity)
         {
-            _grid.Clear();
-            _equipment.Clear();
+            if (item == null || quantity <= 0 || GetQuantity(item) < quantity)
+            {
+                return false;
+            }
+
+            int remaining = quantity;
+            for (int i = _stacks.Count - 1; i >= 0 && remaining > 0; i--)
+            {
+                InventoryStack stack = _stacks[i];
+                if (stack.Item != item)
+                {
+                    continue;
+                }
+
+                if (stack.Quantity <= remaining)
+                {
+                    remaining -= stack.Quantity;
+                    _stacks.RemoveAt(i);
+                }
+                else
+                {
+                    _stacks[i] = new InventoryStack(item, stack.Quantity - remaining);
+                    remaining = 0;
+                }
+            }
+
+            RaiseChanged();
+            return true;
+        }
+
+        public bool EarnGold(int amount)
+        {
+            if (amount < 0)
+            {
+                return false;
+            }
+
+            _gold += amount;
+            RaiseChanged();
+            return true;
+        }
+
+        public bool SpendGold(int amount)
+        {
+            if (amount < 0 || amount > _gold)
+            {
+                return false;
+            }
+
+            _gold -= amount;
+            RaiseChanged();
+            return true;
+        }
+
+        private void RaiseChanged()
+        {
+            Changed?.Invoke();
         }
     }
 }

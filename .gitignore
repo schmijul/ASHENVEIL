@@ -13,8 +13,9 @@
 /aschenveil/[Bb]uilds/
 /aschenveil/[Ll]ogs/
 /aschenveil/[Uu]ser[Ss]ettings/
-/aschenveil/[Pp]ackages/
-/aschenveil/[Pp]roject[Ss]ettings/
+# ProjectSettings and Packages/manifest.json ARE tracked (lesson from the 2026-07 wipe:
+# they were ignored and became unrecoverable). Only the UPM lock/cache stays out.
+/aschenveil/[Pp]ackages/PackageCache/
 
 # MemoryCaptures
 /[Mm]emoryCaptures/
@@ -66,8 +67,8 @@ crashlytics-build.properties
 # Packed Addressables
 /[Aa]ssets/[Aa]ddressable[Aa]ssets[Dd]ata/*/*.bin*
 
-# TextMeshPro
-/[Aa]ssets/[Tt]ext[Mm]esh[Pp]ro/
+# TextMeshPro essentials ARE tracked — required for standalone builds (all UI text
+# throws NullReferenceException in a player without TMP Settings/fonts present).
 
 # IDE
 .idea/

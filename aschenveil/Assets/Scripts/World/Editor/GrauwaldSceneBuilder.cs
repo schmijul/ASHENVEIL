@@ -1,756 +1,1791 @@
 using System.Collections.Generic;
+using Ashenveil.AI;
+using Ashenveil.AI.Boss;
+using Ashenveil.Aether;
+using Ashenveil.Combat;
+using Ashenveil.Core;
+using Ashenveil.Dialog;
+using Ashenveil.Flow;
+using Ashenveil.Inventory;
+using Ashenveil.Player;
+using Ashenveil.Trade;
+using Ashenveil.UI;
+using Ashenveil.VFX;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
-using Ashenveil.Player;
-using Ashenveil.Camera;
 
 namespace Ashenveil.World.Editor
 {
     /// <summary>
-    /// Creates the Grauwald terrain scene and required world profile assets.
-    /// Referenced GDD sections: 3.2 and 3.4
+    /// Source of truth for the Grauwald demo scene. Builds the entire playable loop from
+    /// code — terrain, Mischwald (no fog), nordic village, aether crystal clearing, boss
+    /// arena, player rig, UI, and all runtime wiring — so the scene is reproducible and
+    /// never hand-edited. Run via menu or -executeMethod BuildGrauwaldScene.
+    /// Referenced GDD section: Demo-Ablauf.
     /// </summary>
     public static class GrauwaldSceneBuilder
     {
         private const string ScenePath = "Assets/Scenes/Grauwald.unity";
-        private const string TerrainDataPath = "Assets/Scenes/GrauwaldTerrainData.asset";
-        private const string WorldAssetFolder = "Assets/ScriptableObjects/World";
-        private const string TerrainProfilePath = WorldAssetFolder + "/GrauwaldTerrainEnvironmentProfile.asset";
-        private const string LightingProfilePath = WorldAssetFolder + "/GrauwaldLightingPhaseProfile.asset";
-        private const string VillageProfilePath = WorldAssetFolder + "/GrauweilerVillageEnvironmentProfile.asset";
-        private const string ForestFloorLayerPath = WorldAssetFolder + "/GrauwaldForestFloor.terrainlayer";
+        private const string TreeDir = "Assets/Environment/Trees";
+        private const string KenneyNatureKitDir = "Assets/Kenney/NatureKit";
+        private const string VikingBuildings = "Assets/Viking Village/Prefabs/Buildings";
 
-        private const string MossLayerPath = "Assets/Supercyan Free Forest Sample/TerrainLayers/forestpack_moss_light_terrainlayer.terrainlayer";
-        private const string RoadLayerPath = "Assets/Supercyan Free Forest Sample/TerrainLayers/forestpack_road_terrailayer.terrainlayer";
-        private const string RockLayerPath = "Assets/Supercyan Free Forest Sample/TerrainLayers/forestpack_rock_terrainlayer.terrainlayer";
+        // Landmark anchors (X,Z). Story order (GDD Phase 1→): the player WAKES deep in the
+        // southern forest, walks north through the woods to the village, then continues north
+        // into deeper forest to the crystal and boss beyond.
+        private static readonly Vector3 PlayerStart = new Vector3(0f, 1f, -130f);
+        private static readonly Vector3 VillageCenter = new Vector3(0f, 0f, 0f);
+        private static readonly Vector3 CrystalPos = new Vector3(20f, 0f, 95f);
+        private static readonly Vector3 BossArenaPos = new Vector3(-12f, 0f, 140f);
+        private static readonly Color GothicLeafColor = new Color(0.10f, 0.16f, 0.09f);
+        private static readonly Color GothicBarkColor = new Color(0.14f, 0.10f, 0.07f);
+        private static readonly Color GothicSlateColor = new Color(0.16f, 0.16f, 0.17f);
+        private static readonly Color GothicMushroomColor = new Color(0.28f, 0.10f, 0.10f);
+        private static readonly Color GothicMossColor = new Color(0.13f, 0.15f, 0.10f);
+        private static readonly Dictionary<Color, Material> GothicFoliageMaterialCache = new Dictionary<Color, Material>();
+        private static Terrain _activeTerrain;
 
-        private const string PlayerCharacterPrefabPath = "Assets/Blink/Art/Characters/Stylized/Humans/Prefabs_Humans/HumanMale_Character_Free.prefab";
-        private const string InputActionsPath = "Assets/Settings/AshenveilInputActions.inputactions";
-        private const string FallbackInputActionsPath = "Assets/InputSystem_Actions.inputactions";
-
-        private const string AnimControllerPath = "Assets/ScriptableObjects/Player/PlayerMovementAnimator.controller";
-
-        private const string IdleAnimPath = "Assets/Kevin Iglesias/Human Animations/Animations/Male/Idles/HumanM@Idle01.fbx";
-        private const string WalkAnimPath = "Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Walk/HumanM@Walk01_Forward.fbx";
-        private const string RunAnimPath = "Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Run/HumanM@Run01_Forward.fbx";
-        private const string SprintAnimPath = "Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Sprint/HumanM@Sprint01_Forward.fbx";
-        private const string JumpAnimPath = "Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Jump/HumanM@Jump01.fbx";
-        private const string FallAnimPath = "Assets/Kevin Iglesias/Human Animations/Animations/Male/Movement/Jump/HumanM@Fall01.fbx";
-
-        private const string LogPilePrefabPath = "Assets/Viking Village/Prefabs/Props/pf_logpile_01.prefab";
-        private const string WallLogsPrefabPath = "Assets/Viking Village/Prefabs/Props/pf_wall_logs_04.prefab";
-        private const string LargeRockPrefabPath = "Assets/Rocks and Boulders 2/Rocks/Prefabs/Rock1A.prefab";
-        private const string TreeStumpPrefabPath = "Assets/Supercyan Free Forest Sample/Prefabs/High Quality/Tree/Treestump/forestpack_tree_stump_1.prefab";
-
-        private static readonly Vector3[] TutorialPathWaypoints = new Vector3[]
+        [MenuItem("Ashenveil/Build Grauwald Scene")]
+        public static void BuildGrauwaldScene()
         {
-            new Vector3(150f, 0f, 300f),   // Start
-            new Vector3(152f, 0f, 288f),   // slight right
-            new Vector3(147f, 0f, 275f),   // curve left
-            new Vector3(155f, 0f, 262f),   // curve right
-            new Vector3(150f, 0f, 250f),   // back to center
-            new Vector3(143f, 0f, 238f),   // curve left
-            new Vector3(147f, 0f, 225f),   // Hindernis area
-            new Vector3(155f, 0f, 214f),   // curve right
-            new Vector3(163f, 0f, 204f),   // opening toward clearing
-            new Vector3(170f, 0f, 195f),   // clearing entry
-            new Vector3(172f, 0f, 185f),   // clearing — Item (left) + Gegner (right)
-        };
+            Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-        [MenuItem("Ashenveil/World/Build Grauwald Scene")]
-        public static void BuildGrauwaldSceneMenu()
-        {
-            BuildGrauwaldScene();
+            GrauwaldContentFactory.Content content = GrauwaldContentFactory.Build();
+
+            BuildLightingAndVolume();
+            new GameObject("AudioDirector").AddComponent<Ashenveil.Audio.AudioDirector>();
+            Transform ground = BuildGround();
+            BuildForest();
+            BuildUndergrowth();
+
+            // Village (normal + burning variants share a parent for the destruction swap).
+            var villageNormal = new GameObject("Village_Normal");
+            var villageBurning = new GameObject("Village_Burning");
+            BuildVillage(villageNormal.transform);
+            BuildBurningVillage(villageBurning.transform);
+
+            // Player rig + camera.
+            PlayerRig rig = BuildPlayer(content);
+
+            // Aether crystal in the deep-forest clearing.
+            AetherCrystal crystal = BuildCrystal(rig.AetherPool);
+
+            // Boss + arena (chases and damages the player).
+            (MutatedWolfBossController boss, BossArenaTrigger arena) = BuildBoss(rig);
+
+            // Wildlife hunting grounds between start and village.
+            BuildWildlife(content, rig.Root.transform);
+
+            // Quest items scattered in the world (herbs on the forest walk, hammer by the rocks).
+            List<GameServices.QuestItemLink> questLinks = BuildQuestItems(content, rig.Inventory);
+
+            // UI + services + director.
+            UiRefs ui = BuildUi(rig, content);
+            var director = BuildDirector(ui, villageNormal, villageBurning);
+
+            // NPCs (healer, smith, vendor) with their dialog/trade + services wiring.
+            BuildNpcs(content, rig, ui, director, questLinks);
+
+            BossBind(ui.BossBar, boss, arena);
+
+            EnsureScenesFolder();
+            EditorSceneManager.SaveScene(scene, ScenePath);
+            AssetDatabase.SaveAssets();
+            Debug.Log("[GrauwaldSceneBuilder] Grauwald scene built at " + ScenePath);
         }
 
-        private static AnimationClip LoadClipFromFBX(string path)
+        // ---------------------------------------------------------------- lighting
+
+        private static void BuildLightingAndVolume()
         {
-            Object[] assets = AssetDatabase.LoadAllAssetsAtPath(path);
-            if (assets == null) return null;
-            foreach (Object asset in assets)
+            // Low, warm sun — golden-hour rake for long soft shadows and mood.
+            var sunGo = new GameObject("Directional Light (Sun)");
+            var sun = sunGo.AddComponent<Light>();
+            sun.type = LightType.Directional;
+            sun.color = new Color(1f, 0.82f, 0.62f);
+            sun.intensity = 0.95f;
+            sun.shadows = LightShadows.Soft;
+            sun.shadowStrength = 0.85f;
+            sunGo.transform.rotation = Quaternion.Euler(24f, 40f, 0f);
+
+            // Cool, low ambient so the warm sun reads and shadows stay moody.
+            RenderSettings.ambientMode = AmbientMode.Trilight;
+            RenderSettings.ambientSkyColor = new Color(0.30f, 0.36f, 0.46f);
+            RenderSettings.ambientEquatorColor = new Color(0.22f, 0.24f, 0.22f);
+            RenderSettings.ambientGroundColor = new Color(0.08f, 0.08f, 0.07f);
+
+            // Atmospheric distance fog for depth (overrides the old "no fog" — the look
+            // needs aerial perspective; it stays subtle so the near forest reads clearly).
+            RenderSettings.fog = true;
+            RenderSettings.fogMode = FogMode.ExponentialSquared;
+            RenderSettings.fogColor = new Color(0.42f, 0.45f, 0.48f);
+            RenderSettings.fogDensity = 0.014f;
+
+            BuildPostProcessing();
+        }
+
+        private static void BuildPostProcessing()
+        {
+            var volumeGo = new GameObject("Global Volume");
+            var volume = volumeGo.AddComponent<Volume>();
+            volume.isGlobal = true;
+
+            var profile = ScriptableObject.CreateInstance<VolumeProfile>();
+            AssetDatabase.CreateAsset(profile, "Assets/Settings/GrauwaldVolumeProfile.asset");
+
+            // ACES tonemapping — filmic contrast/rolloff, the core "not-flat" change.
+            var tonemap = profile.Add<Tonemapping>(true);
+            tonemap.mode.overrideState = true;
+            tonemap.mode.value = TonemappingMode.ACES;
+
+            // Moody grade: slight under-exposure, more contrast, desaturated, warm/cool split.
+            var color = profile.Add<ColorAdjustments>(true);
+            color.postExposure.overrideState = true;
+            color.postExposure.value = -0.5f;
+            color.contrast.overrideState = true;
+            color.contrast.value = 18f;
+            color.saturation.overrideState = true;
+            color.saturation.value = -28f;
+            color.colorFilter.overrideState = true;
+            color.colorFilter.value = new Color(0.94f, 0.93f, 0.86f);
+
+            var wb = profile.Add<WhiteBalance>(true);
+            wb.temperature.overrideState = true;
+            wb.temperature.value = 8f; // slightly warm
+
+            // Cool shadows, warm highlights — classic cinematic split-tone.
+            var smh = profile.Add<ShadowsMidtonesHighlights>(true);
+            smh.shadows.overrideState = true;
+            smh.shadows.value = new Vector4(0.90f, 0.97f, 1.08f, 0f);
+            smh.highlights.overrideState = true;
+            smh.highlights.value = new Vector4(1.06f, 1.0f, 0.90f, 0f);
+
+            // Bloom to make the aether crystal and fire glow.
+            var bloom = profile.Add<Bloom>(true);
+            bloom.intensity.overrideState = true;
+            bloom.intensity.value = 0.9f;
+            bloom.threshold.overrideState = true;
+            bloom.threshold.value = 0.9f;
+            bloom.tint.overrideState = true;
+            bloom.tint.value = new Color(0.95f, 0.95f, 1f);
+
+            // Vignette to frame and darken edges.
+            var vignette = profile.Add<Vignette>(true);
+            vignette.intensity.overrideState = true;
+            vignette.intensity.value = 0.32f;
+            vignette.smoothness.overrideState = true;
+            vignette.smoothness.value = 0.5f;
+
+            volume.sharedProfile = profile;
+            EditorUtility.SetDirty(profile);
+        }
+
+        // ---------------------------------------------------------------- ground
+
+        private static Transform BuildGround()
+        {
+            var data = new TerrainData
             {
-                if (asset is AnimationClip clip && !clip.name.StartsWith("__preview__"))
+                heightmapResolution = 513,
+                size = new Vector3(400f, 12f, 400f)
+            };
+
+            data.SetHeights(0, 0, BuildTerrainHeights(data.heightmapResolution, data.size));
+            data.terrainLayers = BuildTerrainLayers();
+
+            var ground = Terrain.CreateTerrainGameObject(data);
+            ground.name = "Ground";
+            ground.transform.position = new Vector3(-200f, 0f, -200f);
+            ground.isStatic = true;
+            ground.tag = "Untagged";
+
+            var terrain = ground.GetComponent<Terrain>();
+            terrain.materialTemplate = FindProjectTerrainMaterial();
+
+            data.SetAlphamaps(0, 0, BuildTerrainAlphamaps(data));
+            terrain.Flush();
+            _activeTerrain = Terrain.activeTerrain != null ? Terrain.activeTerrain : terrain;
+            return ground.transform;
+        }
+
+        private static float[,] BuildTerrainHeights(int resolution, Vector3 terrainSize)
+        {
+            var heights = new float[resolution, resolution];
+            for (int y = 0; y < resolution; y++)
+            {
+                float nz = y / (float)(resolution - 1);
+                float worldZ = nz * terrainSize.z - terrainSize.z * 0.5f;
+                for (int x = 0; x < resolution; x++)
                 {
-                    return clip;
+                    float nx = x / (float)(resolution - 1);
+                    float worldX = nx * terrainSize.x - terrainSize.x * 0.5f;
+
+                    float broad = Mathf.PerlinNoise(worldX * 0.0085f + 17.3f, worldZ * 0.0085f + 91.7f);
+                    float mid = Mathf.PerlinNoise(worldX * 0.021f + 141.9f, worldZ * 0.021f + 33.4f);
+                    float fine = Mathf.PerlinNoise(worldX * 0.047f + 5.8f, worldZ * 0.047f + 211.2f);
+                    float rise = Mathf.Pow(Mathf.PerlinNoise(worldX * 0.012f + 311.5f, worldZ * 0.012f + 18.6f), 3f);
+                    float height = broad * 0.18f + mid * 0.10f + fine * 0.04f + rise * 0.35f;
+                    height = Mathf.Clamp(height, 0.02f, 0.68f);
+
+                    height = FlattenGameplayAnchor(height, worldX, worldZ, VillageCenter, 30f);
+                    height = FlattenGameplayAnchor(height, worldX, worldZ, PlayerStart, 30f);
+                    height = FlattenGameplayAnchor(height, worldX, worldZ, CrystalPos, 30f);
+                    height = FlattenGameplayAnchor(height, worldX, worldZ, BossArenaPos, 30f);
+                    heights[y, x] = height;
                 }
             }
+
+            return heights;
+        }
+
+        private static float FlattenGameplayAnchor(float height, float worldX, float worldZ, Vector3 anchor, float radius)
+        {
+            float dist = Vector2.Distance(new Vector2(worldX, worldZ), new Vector2(anchor.x, anchor.z));
+            if (dist >= radius)
+            {
+                return height;
+            }
+
+            float t = Mathf.SmoothStep(0f, 1f, dist / radius);
+            return Mathf.Lerp(0.15f, height, t);
+        }
+
+        private static TerrainLayer[] BuildTerrainLayers()
+        {
+            return new[]
+            {
+                MakeTerrainLayer("Assets/Viking Village/Textures/Terrain/terrain_grass_01_a.tif"),
+                MakeTerrainLayer("Assets/Viking Village/Textures/Terrain/terrain_mudslide_01_a.tif"),
+                MakeTerrainLayer("Assets/Viking Village/Textures/Terrain/terrain_wetmud_01_a.tif")
+            };
+        }
+
+        private static TerrainLayer MakeTerrainLayer(string texturePath)
+        {
+            var layer = new TerrainLayer
+            {
+                diffuseTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(texturePath),
+                tileSize = new Vector2(8f, 8f)
+            };
+            return layer;
+        }
+
+        private static float[,,] BuildTerrainAlphamaps(TerrainData data)
+        {
+            int width = data.alphamapWidth;
+            int height = data.alphamapHeight;
+            var maps = new float[width, height, 3];
+            for (int y = 0; y < height; y++)
+            {
+                float nz = y / (float)(height - 1);
+                for (int x = 0; x < width; x++)
+                {
+                    float nx = x / (float)(width - 1);
+                    float steepness = data.GetSteepness(nx, nz);
+                    float terrainHeight = data.GetInterpolatedHeight(nx, nz);
+
+                    float dirt = Mathf.InverseLerp(8f, 24f, steepness);
+                    float mud = Mathf.InverseLerp(18f, 34f, steepness);
+                    float lowGrass = Mathf.InverseLerp(5.5f, 1.5f, terrainHeight);
+                    float grass = Mathf.Clamp01(1f - dirt * 0.75f - mud * 0.65f + lowGrass * 0.25f);
+                    dirt = Mathf.Clamp01(dirt * (1f - mud * 0.55f));
+                    mud = Mathf.Clamp01(mud);
+
+                    float total = grass + dirt + mud;
+                    if (total < 0.001f)
+                    {
+                        grass = 1f;
+                        total = 1f;
+                    }
+
+                    maps[x, y, 0] = grass / total;
+                    maps[x, y, 1] = dirt / total;
+                    maps[x, y, 2] = mud / total;
+                }
+            }
+
+            return maps;
+        }
+
+        private static Material FindProjectTerrainMaterial()
+        {
+            string[] guids = AssetDatabase.FindAssets("t:Material Terrain", new[] { "Assets" });
+            for (int i = 0; i < guids.Length; i++)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guids[i]);
+                var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+                if (mat != null && mat.shader != null && mat.shader.name.Contains("Terrain"))
+                {
+                    return mat;
+                }
+            }
+
             return null;
         }
 
-        public static void BuildGrauwaldScene()
+        private static Vector3 GroundedPosition(Vector3 position)
         {
-            EnsureFolder("Assets/ScriptableObjects");
-            EnsureFolder(WorldAssetFolder);
-            EnsureFolder("Assets/Scenes");
-
-            TerrainEnvironmentProfile terrainProfile = LoadOrCreateTerrainProfile();
-            LightingPhaseProfile lightingProfile = LoadOrCreateLightingProfile();
-            VillageEnvironmentProfile villageProfile = LoadOrCreateVillageProfile();
-            TerrainData terrainData = LoadOrCreateTerrainData();
-
-            Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            scene.name = "Grauwald";
-
-            GameObject root = new GameObject("Grauwald");
-            GameObject lightingRoot = new GameObject("World Lighting");
-            lightingRoot.transform.SetParent(root.transform, false);
-
-            GameObject directionalLightObject = new GameObject("Directional Light");
-            directionalLightObject.transform.SetParent(lightingRoot.transform, false);
-            Light directionalLight = directionalLightObject.AddComponent<Light>();
-            directionalLight.type = LightType.Directional;
-            directionalLight.shadows = LightShadows.Soft;
-
-            GameObject environmentRoot = new GameObject("Environment");
-            environmentRoot.transform.SetParent(root.transform, false);
-
-            GameObject generatedContentRoot = new GameObject("Generated Forest Content");
-            generatedContentRoot.transform.SetParent(environmentRoot.transform, false);
-            GameObject villageRoot = new GameObject("Village");
-            villageRoot.transform.SetParent(environmentRoot.transform, false);
-            GameObject generatedVillageContentRoot = new GameObject("Generated Village Content");
-            generatedVillageContentRoot.transform.SetParent(villageRoot.transform, false);
-
-            LightingPhaseManager lightingManager = lightingRoot.AddComponent<LightingPhaseManager>();
-            ForestEnvironmentBootstrapper bootstrapper = environmentRoot.AddComponent<ForestEnvironmentBootstrapper>();
-            VillageEnvironmentBootstrapper villageBootstrapper = villageRoot.AddComponent<VillageEnvironmentBootstrapper>();
-
-            AssignLightingManager(lightingManager, lightingProfile, directionalLight);
-            AssignBootstrapper(bootstrapper, terrainProfile, lightingProfile, lightingManager, generatedContentRoot.transform, terrainData);
-            ConfigureTutorialPath(bootstrapper);
-
-            bootstrapper.BuildEnvironment();
-            AssignVillageBootstrapper(villageBootstrapper, villageProfile, bootstrapper.Terrain, generatedVillageContentRoot.transform);
-            villageBootstrapper.BuildVillage();
-
-            // Player spawns in the forest for Phase 1 (The Hunt), not in the village
-            Vector3 forestSpawnPoint = TutorialPathWaypoints[0];
-            BuildPlayerSetup(root.transform, forestSpawnPoint, bootstrapper.Terrain);
-            BuildTutorialObstacles(root.transform, bootstrapper.Terrain);
-
-            UpgradeSceneMaterialsToURP(root.transform);
-
-            EditorSceneManager.MarkSceneDirty(scene);
-            EditorSceneManager.SaveScene(scene, ScenePath);
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
+            return new Vector3(position.x, SampleGroundHeight(position.x, position.z) + position.y, position.z);
         }
 
-        private static void UpgradeSceneMaterialsToURP(Transform root)
+        private static float SampleGroundHeight(float x, float z)
         {
-            Shader hdrpLit = Shader.Find("HDRP/Lit");
-            if (hdrpLit == null)
+            Terrain terrain = _activeTerrain != null ? _activeTerrain : Terrain.activeTerrain;
+            if (terrain == null)
             {
-                // Fallback to URP if HDRP not yet active
-                hdrpLit = Shader.Find("Universal Render Pipeline/Lit");
+                return 0f;
             }
 
-            if (hdrpLit == null)
+            return terrain.SampleHeight(new Vector3(x, 0f, z)) + terrain.transform.position.y;
+        }
+
+        // ---------------------------------------------------------------- forest
+
+        private static void BuildForest()
+        {
+            string firTreePath = "Assets/Supercyan Free Forest Sample/Prefabs/High Quality/Tree/Fir/forestpack_tree_fir_tall.prefab";
+            string leafTreePath = "Assets/Supercyan Free Forest Sample/Prefabs/High Quality/Tree/Leaf/Normal/forestpack_tree_1_leaf_1.prefab";
+            string[] treePaths =
             {
-                Debug.LogWarning("Neither HDRP/Lit nor URP/Lit shader found — skipping material upgrade.");
+                firTreePath, firTreePath, firTreePath, firTreePath, firTreePath,
+                firTreePath, firTreePath, firTreePath, firTreePath, firTreePath,
+                firTreePath, firTreePath, firTreePath,
+                leafTreePath, leafTreePath, leafTreePath, leafTreePath, leafTreePath,
+                leafTreePath, leafTreePath
+            };
+
+            List<GameObject> trees = LoadPrefabs(treePaths);
+            if (trees.Count == 0)
+            {
+                Debug.LogWarning("[GrauwaldSceneBuilder] No realistic tree prefabs found.");
                 return;
             }
 
-            bool isHDRP = hdrpLit.name.StartsWith("HDRP");
+            var forest = new GameObject("Forest");
+            var rng = new System.Random(1337);
+            int placed = 0;
 
+            int attempts = 0;
+            while (placed < 900 && attempts < 5000)
+            {
+                attempts++;
+                float x = (float)(rng.NextDouble() * 380.0 - 190.0);
+                float z = (float)(rng.NextDouble() * 380.0 - 190.0);
+                var pos = new Vector3(x, 0f, z);
+
+                // Keep clearings only where the story needs open space; forest fills the rest,
+                // including the whole stretch between the wake spot and the village.
+                if (Near(pos, PlayerStart, 7f)) continue;   // small wake clearing
+                if (Near(pos, VillageCenter, 32f)) continue; // village
+                if (Near(pos, CrystalPos, 11f)) continue;    // crystal clearing
+                if (Near(pos, BossArenaPos, 16f)) continue;  // boss arena
+
+                GameObject prefab = trees[rng.Next(trees.Count)];
+                float yaw = (float)(rng.NextDouble() * 360.0);
+                bool fir = prefab.name.IndexOf("fir", System.StringComparison.OrdinalIgnoreCase) >= 0;
+                float minHeight = fir ? 7f : 6f;
+                float maxHeight = fir ? 13f : 10f;
+                float targetHeight = RandomRange(rng, minHeight, maxHeight);
+                GameObject tree = InstantiateFittedKenneyPrefab(prefab, forest.transform, pos, yaw, targetHeight, 1f, out float fittedHeight);
+
+                AddTrunkCollider(tree, fittedHeight);
+                placed++;
+            }
+
+            Debug.Log($"[GrauwaldSceneBuilder] Placed {placed} trees.");
+        }
+
+        private static void BuildUndergrowth()
+        {
+            string[] propPaths =
+            {
+                "Assets/Viking Village/Book of the Dead/Vegetation/MeadowGrass_01/Meadow_Grass_01_Var1_Prefab.prefab",
+                "Assets/Viking Village/Book of the Dead/Vegetation/MeadowGrass_01/Meadow_Grass_01_Var2_Prefab.prefab",
+                "Assets/Viking Village/Book of the Dead/Vegetation/MeadowGrass_01/Meadow_Grass_01_Var3_Prefab.prefab",
+                "Assets/Viking Village/Book of the Dead/Vegetation/MeadowGrass_01/Meadow_Grass_01_Var4_Prefab.prefab",
+                "Assets/Viking Village/Book of the Dead/Vegetation/MeadowGrass_01/Meadow_Grass_01_Var5_Prefab.prefab",
+                "Assets/Viking Village/Book of the Dead/Vegetation/MeadowGrass_01/Meadow_Grass_01_Var6_Prefab.prefab",
+                "Assets/Supercyan Free Forest Sample/Prefabs/High Quality/Foliage/Grass/forestpack_foliage_grassPatch_small_1.prefab",
+                "Assets/Supercyan Free Forest Sample/Prefabs/High Quality/Foliage/Grass/forestpack_foliage_grassPatch_small_2.prefab",
+                "Assets/Viking Village/Book of the Dead/Vegetation/Ferns/Fern_var01_Prefab.prefab",
+                "Assets/Viking Village/Book of the Dead/Vegetation/Ferns/Fern_var02_Prefab.prefab",
+                "Assets/Viking Village/Book of the Dead/Vegetation/Ferns/Fern_var03_Prefab.prefab",
+                "Assets/Viking Village/Book of the Dead/Vegetation/GreenBush/GreenBush_Var01_Prefab.prefab",
+                "Assets/Viking Village/Book of the Dead/Vegetation/BroadleafShrub_01/Broadleaf_Shrub_01_Var4_Prefab.prefab",
+                "Assets/Viking Village/Book of the Dead/Vegetation/Plant_Perennials/PH_Plant_Perennials_a2_1x1x2_A_Prefab.prefab",
+                "Assets/Supercyan Free Forest Sample/Prefabs/High Quality/Tree/Treestump/forestpack_tree_stump_1.prefab",
+                $"{KenneyNatureKitDir}/rock.fbx",
+                $"{KenneyNatureKitDir}/rock_smallA.fbx",
+                $"{KenneyNatureKitDir}/rock_smallB.fbx",
+                $"{KenneyNatureKitDir}/rock_largeA.fbx",
+                $"{KenneyNatureKitDir}/rock_largeB.fbx"
+            };
+
+            List<GameObject> props = LoadWeightedUndergrowthPrefabs(propPaths);
+            if (props.Count == 0)
+            {
+                Debug.LogWarning("[GrauwaldSceneBuilder] No realistic undergrowth prefabs found.");
+                return;
+            }
+
+            var undergrowth = new GameObject("Undergrowth");
+            var rng = new System.Random(4242);
+            int placed = 0;
+            int attempts = 0;
+
+            while (placed < 1400 && attempts < 8000)
+            {
+                attempts++;
+                float x = (float)(rng.NextDouble() * 380.0 - 190.0);
+                float z = (float)(rng.NextDouble() * 380.0 - 190.0);
+                var pos = new Vector3(x, 0f, z);
+
+                if (Near(pos, PlayerStart, 4f)) continue;
+                if (Near(pos, VillageCenter, 30f)) continue;
+                if (Near(pos, CrystalPos, 6f)) continue;
+                if (Near(pos, BossArenaPos, 12f)) continue;
+
+                GameObject prefab = props[rng.Next(props.Count)];
+                float yaw = (float)(rng.NextDouble() * 360.0);
+                float targetHeight = RandomUndergrowthHeight(prefab.name, rng);
+                float extraScale = RandomRange(rng, 0.8f, 1.5f);
+                GameObject prop = InstantiateFittedKenneyPrefab(prefab, undergrowth.transform, pos, yaw, targetHeight, extraScale, out _);
+
+                if (ShouldAddUndergrowthCollider(prefab.name))
+                {
+                    AddBoundsCollider(prop);
+                }
+
+                placed++;
+            }
+
+            Debug.Log($"[GrauwaldSceneBuilder] Placed {placed} undergrowth props.");
+        }
+
+        private static List<GameObject> LoadTrees()
+        {
+            var list = new List<GameObject>();
+            foreach (string guid in AssetDatabase.FindAssets("t:GameObject", new[] { TreeDir }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                if (path.Contains("LOD0"))
+                {
+                    var go = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+                    if (go != null)
+                    {
+                        list.Add(go);
+                    }
+                }
+            }
+
+            return list;
+        }
+
+        private static List<GameObject> LoadPrefabs(string[] paths)
+        {
+            var list = new List<GameObject>();
+            for (int i = 0; i < paths.Length; i++)
+            {
+                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(paths[i]);
+                if (prefab != null)
+                {
+                    list.Add(prefab);
+                }
+            }
+
+            return list;
+        }
+
+        private static List<GameObject> LoadWeightedUndergrowthPrefabs(string[] paths)
+        {
+            var list = new List<GameObject>();
+            for (int i = 0; i < paths.Length; i++)
+            {
+                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(paths[i]);
+                if (prefab == null)
+                {
+                    continue;
+                }
+
+                int weight = GetUndergrowthWeight(prefab.name);
+                for (int copy = 0; copy < weight; copy++)
+                {
+                    list.Add(prefab);
+                }
+            }
+
+            return list;
+        }
+
+        private static int GetUndergrowthWeight(string name)
+        {
+            if (ContainsAny(name, "grass", "meadow"))
+            {
+                return 5;
+            }
+
+            if (ContainsAny(name, "fern"))
+            {
+                return 3;
+            }
+
+            return 1;
+        }
+
+        private static List<GameObject> LoadKenneyModels(string[] names)
+        {
+            var list = new List<GameObject>();
+            for (int i = 0; i < names.Length; i++)
+            {
+                GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{KenneyNatureKitDir}/{names[i]}.fbx");
+                if (prefab != null)
+                {
+                    list.Add(prefab);
+                }
+            }
+
+            return list;
+        }
+
+        private static GameObject InstantiateFittedKenneyPrefab(
+            GameObject prefab,
+            Transform parent,
+            Vector3 position,
+            float yaw,
+            float targetHeight,
+            float extraScale,
+            out float fittedHeight)
+        {
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
+            instance.transform.position = GroundedPosition(position);
+            instance.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+            fittedHeight = targetHeight;
+
+            if (TryGetCombinedRendererBounds(instance, out Bounds bounds) && bounds.size.y > 0.001f)
+            {
+                float baseScale = targetHeight / bounds.size.y;
+                float scale = baseScale * extraScale;
+                instance.transform.localScale = Vector3.one * scale;
+                if (TryGetCombinedRendererBounds(instance, out Bounds scaledBounds))
+                {
+                    fittedHeight = scaledBounds.size.y;
+                }
+            }
+
+            UrpFixMaterials(instance);
+            return instance;
+        }
+
+        private static bool TryGetCombinedRendererBounds(GameObject root, out Bounds bounds)
+        {
+            bounds = new Bounds(root.transform.position, Vector3.zero);
+            bool hasBounds = false;
             Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
-            HashSet<Material> upgraded = new HashSet<Material>();
-            int count = 0;
-
-            foreach (Renderer renderer in renderers)
+            for (int i = 0; i < renderers.Length; i++)
             {
-                Material[] materials = renderer.sharedMaterials;
-                for (int i = 0; i < materials.Length; i++)
+                if (!hasBounds)
                 {
-                    Material mat = materials[i];
-                    if (mat == null || upgraded.Contains(mat))
-                        continue;
-
-                    string shaderName = mat.shader.name;
-                    bool needsUpgrade = shaderName == "Standard" ||
-                        shaderName == "Standard (Specular setup)" ||
-                        shaderName == "Legacy Shaders/Diffuse" ||
-                        shaderName == "Legacy Shaders/Bumped Diffuse" ||
-                        shaderName == "Legacy Shaders/Specular" ||
-                        shaderName == "Legacy Shaders/Bumped Specular" ||
-                        shaderName == "Legacy Shaders/Transparent/Diffuse" ||
-                        shaderName == "Mobile/Diffuse" ||
-                        shaderName == "Universal Render Pipeline/Lit" ||
-                        shaderName == "Universal Render Pipeline/Simple Lit";
-
-                    if (!needsUpgrade)
-                        continue;
-
-                    Texture mainTex = mat.HasProperty("_MainTex") ? mat.GetTexture("_MainTex") : null;
-                    if (mainTex == null && mat.HasProperty("_BaseMap")) mainTex = mat.GetTexture("_BaseMap");
-                    if (mainTex == null && mat.HasProperty("_BaseColorMap")) mainTex = mat.GetTexture("_BaseColorMap");
-
-                    Color color = mat.HasProperty("_Color") ? mat.GetColor("_Color") :
-                                  mat.HasProperty("_BaseColor") ? mat.GetColor("_BaseColor") : Color.white;
-
-                    Texture normalMap = mat.HasProperty("_BumpMap") ? mat.GetTexture("_BumpMap") : null;
-                    if (normalMap == null && mat.HasProperty("_NormalMap")) normalMap = mat.GetTexture("_NormalMap");
-
-                    float metallic = mat.HasProperty("_Metallic") ? mat.GetFloat("_Metallic") : 0f;
-                    float smoothness = mat.HasProperty("_Glossiness") ? mat.GetFloat("_Glossiness") :
-                                       mat.HasProperty("_Smoothness") ? mat.GetFloat("_Smoothness") : 0.5f;
-
-                    bool isTransparent = shaderName.Contains("Transparent") ||
-                                         (mat.HasProperty("_Mode") && mat.GetFloat("_Mode") >= 2f) ||
-                                         (mat.HasProperty("_Surface") && mat.GetFloat("_Surface") >= 1f);
-
-                    mat.shader = hdrpLit;
-
-                    if (isHDRP)
-                    {
-                        if (mainTex != null && mat.HasProperty("_BaseColorMap"))
-                            mat.SetTexture("_BaseColorMap", mainTex);
-                        if (mat.HasProperty("_BaseColor"))
-                            mat.SetColor("_BaseColor", color);
-                        if (normalMap != null && mat.HasProperty("_NormalMap"))
-                            mat.SetTexture("_NormalMap", normalMap);
-                        if (mat.HasProperty("_Metallic"))
-                            mat.SetFloat("_Metallic", metallic);
-                        if (mat.HasProperty("_Smoothness"))
-                            mat.SetFloat("_Smoothness", smoothness);
-                        if (isTransparent && mat.HasProperty("_SurfaceType"))
-                            mat.SetFloat("_SurfaceType", 1f);
-                    }
-                    else
-                    {
-                        if (mainTex != null && mat.HasProperty("_BaseMap"))
-                            mat.SetTexture("_BaseMap", mainTex);
-                        if (mat.HasProperty("_BaseColor"))
-                            mat.SetColor("_BaseColor", color);
-                        if (normalMap != null && mat.HasProperty("_BumpMap"))
-                            mat.SetTexture("_BumpMap", normalMap);
-                        if (mat.HasProperty("_Metallic"))
-                            mat.SetFloat("_Metallic", metallic);
-                        if (mat.HasProperty("_Smoothness"))
-                            mat.SetFloat("_Smoothness", smoothness);
-                    }
-
-                    EditorUtility.SetDirty(mat);
-                    upgraded.Add(mat);
-                    count++;
-                }
-            }
-
-            if (count > 0)
-            {
-                Debug.Log($"Upgraded {count} material(s) to {(isHDRP ? "HDRP" : "URP")} Lit.");
-            }
-        }
-
-        private static void BuildPlayerSetup(Transform sceneRoot, Vector3 spawnPoint, Terrain terrain)
-        {
-            float spawnHeight = terrain != null
-                ? terrain.SampleHeight(spawnPoint) + terrain.transform.position.y
-                : 0f;
-            Vector3 spawnPosition = new Vector3(spawnPoint.x, spawnHeight + 0.1f, spawnPoint.z);
-
-            // Face south along the tutorial path
-            Vector3 pathDirection = (TutorialPathWaypoints[1] - TutorialPathWaypoints[0]).normalized;
-            float facingYaw = Mathf.Atan2(pathDirection.x, pathDirection.z) * Mathf.Rad2Deg;
-
-            // Player root
-            GameObject player = new GameObject("Player");
-            player.tag = "Player";
-            player.layer = LayerMask.NameToLayer("Default");
-            player.transform.SetParent(sceneRoot, false);
-            player.transform.position = spawnPosition;
-            player.transform.rotation = Quaternion.Euler(0f, facingYaw, 0f);
-
-            // Character visual
-            GameObject characterPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PlayerCharacterPrefabPath);
-            Animator characterAnimator = null;
-            if (characterPrefab != null)
-            {
-                GameObject characterModel = (GameObject)PrefabUtility.InstantiatePrefab(characterPrefab);
-                characterModel.name = "CharacterModel";
-                characterModel.transform.SetParent(player.transform, false);
-                characterModel.transform.localPosition = Vector3.zero;
-                characterModel.transform.localRotation = Quaternion.identity;
-
-                characterAnimator = characterModel.GetComponentInChildren<Animator>();
-                if (characterAnimator == null)
-                {
-                    characterAnimator = characterModel.AddComponent<Animator>();
-                }
-            }
-
-            // Player components — RequireComponent auto-adds CharacterController
-            PlayerInputHandler inputHandler = player.AddComponent<PlayerInputHandler>();
-            StaminaSystem staminaSystem = player.AddComponent<StaminaSystem>();
-            PlayerMovementController movementController = player.AddComponent<PlayerMovementController>();
-
-            // Wire input asset
-            var inputActions = AssetDatabase.LoadAssetAtPath<UnityEngine.InputSystem.InputActionAsset>(InputActionsPath);
-            if (inputActions == null)
-            {
-                inputActions = AssetDatabase.LoadAssetAtPath<UnityEngine.InputSystem.InputActionAsset>(FallbackInputActionsPath);
-            }
-            if (inputActions != null)
-            {
-                SerializedObject serializedInput = new SerializedObject(inputHandler);
-                serializedInput.FindProperty("_inputActions").objectReferenceValue = inputActions;
-                serializedInput.ApplyModifiedPropertiesWithoutUndo();
-            }
-
-            // Wire movement controller
-            SerializedObject serializedMovement = new SerializedObject(movementController);
-            serializedMovement.FindProperty("_inputHandler").objectReferenceValue = inputHandler;
-            serializedMovement.FindProperty("_staminaSystem").objectReferenceValue = staminaSystem;
-
-            // Camera setup — position behind player along path direction
-            GameObject cameraObject = new GameObject("Main Camera");
-            cameraObject.tag = "MainCamera";
-            cameraObject.transform.SetParent(sceneRoot, false);
-            cameraObject.transform.position = spawnPosition - pathDirection * 3f + Vector3.up * 2f;
-            cameraObject.transform.rotation = Quaternion.Euler(15f, facingYaw, 0f);
-
-            UnityEngine.Camera cam = cameraObject.AddComponent<UnityEngine.Camera>();
-            cam.clearFlags = CameraClearFlags.Skybox;
-            cam.fieldOfView = 55f;
-            cam.nearClipPlane = 0.1f;
-            cam.farClipPlane = 1000f;
-            cameraObject.AddComponent<AudioListener>();
-
-            ThirdPersonCameraController cameraController = cameraObject.AddComponent<ThirdPersonCameraController>();
-            SerializedObject serializedCamera = new SerializedObject(cameraController);
-            serializedCamera.FindProperty("_target").objectReferenceValue = player.transform;
-            serializedCamera.FindProperty("_inputHandler").objectReferenceValue = inputHandler;
-            serializedCamera.ApplyModifiedPropertiesWithoutUndo();
-
-            // Finish wiring movement to camera
-            serializedMovement.FindProperty("_cameraTransform").objectReferenceValue = cameraObject.transform;
-            serializedMovement.ApplyModifiedPropertiesWithoutUndo();
-
-            // Animation setup
-            if (characterAnimator != null)
-            {
-                RuntimeAnimatorController animController = BuildAnimatorController();
-                if (animController != null)
-                {
-                    characterAnimator.runtimeAnimatorController = animController;
-                    characterAnimator.applyRootMotion = false;
-
-                    PlayerAnimationController animScript = characterAnimator.gameObject.AddComponent<PlayerAnimationController>();
-                    SerializedObject serializedAnim = new SerializedObject(animScript);
-                    serializedAnim.FindProperty("_inputHandler").objectReferenceValue = inputHandler;
-                    serializedAnim.ApplyModifiedPropertiesWithoutUndo();
-                }
-            }
-        }
-
-        private static RuntimeAnimatorController BuildAnimatorController()
-        {
-            AnimationClip idleClip = LoadClipFromFBX(IdleAnimPath);
-            AnimationClip walkClip = LoadClipFromFBX(WalkAnimPath);
-            AnimationClip runClip = LoadClipFromFBX(RunAnimPath);
-            AnimationClip sprintClip = LoadClipFromFBX(SprintAnimPath);
-            AnimationClip jumpClip = LoadClipFromFBX(JumpAnimPath);
-            AnimationClip fallClip = LoadClipFromFBX(FallAnimPath);
-
-            if (idleClip == null || walkClip == null)
-            {
-                Debug.LogWarning("Could not load animation clips — skipping animator setup.");
-                return null;
-            }
-
-            EnsureFolder("Assets/ScriptableObjects/Player");
-
-            AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(AnimControllerPath);
-            if (controller != null)
-            {
-                AssetDatabase.DeleteAsset(AnimControllerPath);
-            }
-
-            controller = AnimatorController.CreateAnimatorControllerAtPath(AnimControllerPath);
-            controller.AddParameter("Speed", AnimatorControllerParameterType.Float);
-            controller.AddParameter("IsGrounded", AnimatorControllerParameterType.Bool);
-            controller.AddParameter("Jump", AnimatorControllerParameterType.Trigger);
-
-            AnimatorStateMachine rootSM = controller.layers[0].stateMachine;
-
-            // Locomotion blend tree: Idle → Walk → Run → Sprint
-            BlendTree blendTree;
-            AnimatorState locomotionState = controller.CreateBlendTreeInController("Locomotion", out blendTree);
-            blendTree.blendParameter = "Speed";
-            blendTree.blendType = BlendTreeType.Simple1D;
-            blendTree.AddChild(idleClip, 0f);
-            blendTree.AddChild(walkClip, 0.5f);
-            if (runClip != null) blendTree.AddChild(runClip, 1f);
-            if (sprintClip != null) blendTree.AddChild(sprintClip, 2f);
-
-            rootSM.defaultState = locomotionState;
-
-            // Jump state
-            if (jumpClip != null)
-            {
-                AnimatorState jumpState = rootSM.AddState("Jump");
-                jumpState.motion = jumpClip;
-
-                AnimatorStateTransition toJump = locomotionState.AddTransition(jumpState);
-                toJump.AddCondition(AnimatorConditionMode.If, 0, "Jump");
-                toJump.hasExitTime = false;
-                toJump.duration = 0.1f;
-
-                if (fallClip != null)
-                {
-                    AnimatorState fallState = rootSM.AddState("Fall");
-                    fallState.motion = fallClip;
-
-                    AnimatorStateTransition toFall = jumpState.AddTransition(fallState);
-                    toFall.hasExitTime = true;
-                    toFall.exitTime = 0.85f;
-                    toFall.duration = 0.1f;
-
-                    AnimatorStateTransition fallToLoco = fallState.AddTransition(locomotionState);
-                    fallToLoco.AddCondition(AnimatorConditionMode.If, 0, "IsGrounded");
-                    fallToLoco.hasExitTime = false;
-                    fallToLoco.duration = 0.15f;
+                    bounds = renderers[i].bounds;
+                    hasBounds = true;
                 }
                 else
                 {
-                    AnimatorStateTransition jumpToLoco = jumpState.AddTransition(locomotionState);
-                    jumpToLoco.AddCondition(AnimatorConditionMode.If, 0, "IsGrounded");
-                    jumpToLoco.hasExitTime = true;
-                    jumpToLoco.exitTime = 0.85f;
-                    jumpToLoco.duration = 0.15f;
+                    bounds.Encapsulate(renderers[i].bounds);
                 }
             }
 
-            EditorUtility.SetDirty(controller);
-            AssetDatabase.SaveAssets();
-
-            return controller;
+            return hasBounds;
         }
 
-        private static void ConfigureTutorialPath(ForestEnvironmentBootstrapper bootstrapper)
+        private static float RandomRange(System.Random rng, float min, float max)
         {
-            SerializedObject serialized = new SerializedObject(bootstrapper);
-            SerializedProperty waypoints = serialized.FindProperty("_pathWaypoints");
-            waypoints.arraySize = TutorialPathWaypoints.Length;
-            for (int i = 0; i < TutorialPathWaypoints.Length; i++)
-            {
-                waypoints.GetArrayElementAtIndex(i).vector3Value = TutorialPathWaypoints[i];
-            }
-            serialized.FindProperty("_pathWidth").floatValue = 8f;
-            serialized.ApplyModifiedPropertiesWithoutUndo();
+            return min + (float)rng.NextDouble() * (max - min);
         }
 
-        private static void BuildTutorialObstacles(Transform sceneRoot, Terrain terrain)
+        private static float RandomUndergrowthHeight(string name, System.Random rng)
         {
-            GameObject obstacleRoot = new GameObject("Tutorial Obstacles");
-            obstacleRoot.transform.SetParent(sceneRoot, false);
-
-            // Hindernis: Log pile across the path — low enough to jump over (~0.8m)
-            GameObject logPilePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(LogPilePrefabPath);
-            if (logPilePrefab != null)
+            if (name.IndexOf("grass", System.StringComparison.OrdinalIgnoreCase) >= 0)
             {
-                PlaceObstacle(logPilePrefab, new Vector3(147f, 0f, 225f), 70f, 0.4f, obstacleRoot.transform, terrain, "JumpObstacle_Logs");
+                return RandomRange(rng, 0.4f, 0.8f);
             }
 
-            // Second obstacle: Wall logs, also low enough to jump
-            GameObject wallLogsPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WallLogsPrefabPath);
-            if (wallLogsPrefab != null)
+            if (ContainsAny(name, "bush", "shrub"))
             {
-                PlaceObstacle(wallLogsPrefab, new Vector3(155f, 0f, 214f), 55f, 0.35f, obstacleRoot.transform, terrain, "JumpObstacle_WallLogs");
+                return RandomRange(rng, 0.8f, 1.6f);
             }
 
-            // Item gefunden: Rock marking the item location in the clearing
-            GameObject rockPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(LargeRockPrefabPath);
-            if (rockPrefab != null)
+            if (ContainsAny(name, "fern", "perennial"))
             {
-                PlaceObstacle(rockPrefab, new Vector3(163f, 0f, 188f), 15f, 0.8f, obstacleRoot.transform, terrain, "ItemLocation_Rock");
+                return RandomRange(rng, 0.25f, 0.6f);
             }
 
-            // Stumps along the winding path for atmosphere
-            GameObject stumpPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(TreeStumpPrefabPath);
-            if (stumpPrefab != null)
+            if (name.IndexOf("stump", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("log", System.StringComparison.OrdinalIgnoreCase) >= 0)
             {
-                PlaceObstacle(stumpPrefab, new Vector3(149f, 0f, 280f), 45f, 1.2f, obstacleRoot.transform, terrain, "Stump_001");
-                PlaceObstacle(stumpPrefab, new Vector3(153f, 0f, 255f), 130f, 1.0f, obstacleRoot.transform, terrain, "Stump_002");
-                PlaceObstacle(stumpPrefab, new Vector3(145f, 0f, 235f), 200f, 0.9f, obstacleRoot.transform, terrain, "Stump_003");
+                return RandomRange(rng, 0.6f, 1.2f);
             }
+
+            if (name.IndexOf("rock", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return RandomRange(rng, 0.5f, 1.4f);
+            }
+
+            return RandomRange(rng, 0.25f, 0.6f);
         }
 
-        private static void PlaceObstacle(GameObject prefab, Vector3 position, float yRotation, float scale, Transform parent, Terrain terrain, string name)
+        private static bool ShouldAddUndergrowthCollider(string name)
         {
-            float height = terrain != null
-                ? terrain.SampleHeight(position) + terrain.transform.position.y
-                : 0f;
-            position.y = height;
+            return name.IndexOf("stump", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("log", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("rock", System.StringComparison.OrdinalIgnoreCase) >= 0;
+        }
 
-            GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
-            instance.name = name;
-            instance.transform.SetParent(parent, false);
-            instance.transform.position = position;
-            instance.transform.rotation = Quaternion.Euler(0f, yRotation, 0f);
-            instance.transform.localScale = prefab.transform.localScale * scale;
-
-            // Ensure obstacle has a collider for physics interaction
-            if (instance.GetComponentInChildren<Collider>() == null)
+        private static void ApplyGothicFoliageMaterials(GameObject root)
+        {
+            foreach (Renderer r in root.GetComponentsInChildren<Renderer>(true))
             {
-                MeshFilter meshFilter = instance.GetComponentInChildren<MeshFilter>();
-                if (meshFilter != null)
+                Material[] source = r.sharedMaterials;
+                var replacement = new Material[source.Length];
+                for (int i = 0; i < source.Length; i++)
                 {
-                    MeshCollider collider = meshFilter.gameObject.AddComponent<MeshCollider>();
-                    collider.convex = true;
+                    Material material = source[i];
+                    if (material == null)
+                    {
+                        continue;
+                    }
+
+                    replacement[i] = GetGothicFoliageMaterial(PickGothicFoliageColor(material.name));
                 }
+
+                r.sharedMaterials = replacement;
             }
         }
 
-        private static TerrainEnvironmentProfile LoadOrCreateTerrainProfile()
+        private static Color PickGothicFoliageColor(string materialName)
         {
-            TerrainEnvironmentProfile profile = AssetDatabase.LoadAssetAtPath<TerrainEnvironmentProfile>(TerrainProfilePath);
-            if (profile == null)
+            string name = materialName ?? string.Empty;
+            if (ContainsAny(name, "leaf", "foliage", "pine", "green"))
             {
-                profile = TerrainEnvironmentProfile.CreateRuntimeDefaults();
-                AssetDatabase.CreateAsset(profile, TerrainProfilePath);
+                return GothicLeafColor;
             }
 
-            TerrainLayer moss = AssetDatabase.LoadAssetAtPath<TerrainLayer>(MossLayerPath);
-            TerrainLayer road = AssetDatabase.LoadAssetAtPath<TerrainLayer>(RoadLayerPath);
-            TerrainLayer rock = AssetDatabase.LoadAssetAtPath<TerrainLayer>(RockLayerPath);
-            TerrainLayer forestFloor = LoadOrCreateForestFloorLayer(moss);
-
-            GameObject[] treePrefabs =
+            if (ContainsAny(name, "wood", "bark", "trunk", "brown"))
             {
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Supercyan Free Forest Sample/Prefabs/High Quality/Tree/Fir/forestpack_tree_fir_tall.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Supercyan Free Forest Sample/Prefabs/High Quality/Tree/Leaf/Normal/forestpack_tree_1_leaf_1.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/PolyOne/Free Tree/Prefabs/SM_FreeTree_01.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/PolyOne/Free Tree/Prefabs/SM_FreeTree_02.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/PolyOne/Free Tree/Prefabs/SM_FreeTree_03.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/PolyOne/Free Tree/Prefabs/SM_FreeTree_04.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/PolyOne/Free Tree/Prefabs/SM_FreeTree_05.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/PolyOne/Free Tree/Prefabs/SM_FreeTree_06.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/PolyOne/Free Tree/Prefabs/SM_FreeTree_07.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/PolyOne/Free Tree/Prefabs/SM_FreeTree_08.prefab"),
-            };
-
-            GameObject[] rockPrefabs =
-            {
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Supercyan Free Forest Sample/Prefabs/High Quality/Stone/forestpack_stone_large_1.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Supercyan Free Forest Sample/Prefabs/High Quality/Stone/forestpack_stone_medium_1.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Rocks and Boulders 2/Rocks/Prefabs/Rock1A.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Rocks and Boulders 2/Rocks/Prefabs/Rock2.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Rocks and Boulders 2/Rocks/Prefabs/Rock4A.prefab")
-            };
-
-            GameObject[] foliagePrefabs =
-            {
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Supercyan Free Forest Sample/Prefabs/High Quality/Foliage/Grass/forestpack_foliage_grassPatch_small_1.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Supercyan Free Forest Sample/Prefabs/High Quality/Foliage/Grass/forestpack_foliage_grassPatch_small_2.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Book of the Dead/Vegetation/Ferns/Fern_var01_Prefab.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Book of the Dead/Vegetation/Ferns/Fern_var02_Prefab.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Book of the Dead/Vegetation/Ferns/Fern_var03_Prefab.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Book of the Dead/Vegetation/BroadleafShrub_01/Broadleaf_Shrub_01_Var4_Prefab.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Book of the Dead/Vegetation/MeadowGrass_01/Meadow_Grass_01_Var1_Prefab.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Book of the Dead/Vegetation/MeadowGrass_01/Meadow_Grass_01_Var3_Prefab.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Book of the Dead/Vegetation/Plant_Perennials/PH_Plant_Perennials_a2_1x1x2_A_Prefab.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Book of the Dead/Vegetation/Plant_Perennials/PH_Plant_Perennials_a2_1x1x2_B_Prefab.prefab"),
-            };
-
-            SerializedObject serializedProfile = new SerializedObject(profile);
-            SetObjectArray(serializedProfile.FindProperty("_terrainLayers"), new Object[] { moss, road, forestFloor, rock });
-            SetObjectArray(serializedProfile.FindProperty("_treePrefabs"), treePrefabs);
-            SetObjectArray(serializedProfile.FindProperty("_rockPrefabs"), rockPrefabs);
-            SetObjectArray(serializedProfile.FindProperty("_foliagePrefabs"), foliagePrefabs);
-
-            // Override density values for a very dense mixed forest (GDD 3.2)
-            serializedProfile.FindProperty("_treeCount").intValue = 8000;
-            serializedProfile.FindProperty("_foliageCount").intValue = 5000;
-            serializedProfile.FindProperty("_rockCount").intValue = 200;
-            serializedProfile.FindProperty("_treeRadius").floatValue = 210f;
-            serializedProfile.FindProperty("_rockRadius").floatValue = 220f;
-            serializedProfile.FindProperty("_foliageRadius").floatValue = 220f;
-            serializedProfile.FindProperty("_minTreeScale").floatValue = 1.5f;
-            serializedProfile.FindProperty("_maxTreeScale").floatValue = 3.0f;
-
-            serializedProfile.ApplyModifiedPropertiesWithoutUndo();
-            EditorUtility.SetDirty(profile);
-
-            return profile;
-        }
-
-        private static LightingPhaseProfile LoadOrCreateLightingProfile()
-        {
-            LightingPhaseProfile profile = AssetDatabase.LoadAssetAtPath<LightingPhaseProfile>(LightingProfilePath);
-            if (profile == null)
-            {
-                profile = LightingPhaseProfile.CreateRuntimeDefaults();
-                AssetDatabase.CreateAsset(profile, LightingProfilePath);
+                return GothicBarkColor;
             }
 
-            return profile;
-        }
-
-        private static VillageEnvironmentProfile LoadOrCreateVillageProfile()
-        {
-            VillageEnvironmentProfile profile = AssetDatabase.LoadAssetAtPath<VillageEnvironmentProfile>(VillageProfilePath);
-            if (profile == null)
+            if (ContainsAny(name, "rock", "stone", "cliff", "grey", "gray"))
             {
-                profile = VillageEnvironmentProfile.CreateRuntimeDefaults();
-                AssetDatabase.CreateAsset(profile, VillageProfilePath);
+                return GothicSlateColor;
             }
 
-            GameObject[] residencePrefabs =
+            if (ContainsAny(name, "mushroom"))
             {
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Prefabs/Buildings/pf_build_small_house_01.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Prefabs/Buildings/pf_build_small_house_straw_roof_01.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Prefabs/Buildings/pf_build_small_house_tall_roof_01.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/3DForge/Blueprints/PremiumBlueprints/PB_VIK_VEK/FrontierSettlement/BLUEPRINTS/Frontiers/PB_FS_House.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Prefabs/Buildings/pf_build_small_house_01.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Prefabs/Buildings/pf_build_small_house_straw_roof_01.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Prefabs/Buildings/pf_build_small_house_tall_roof_01.prefab")
-            };
-
-            GameObject[] ambientProps =
-            {
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Prefabs/Props/pf_barrels_01.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Prefabs/Props/pf_buckets_01.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Prefabs/Props/pf_logpile_01.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Prefabs/Props/pf_shed_01.prefab"),
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Prefabs/Props/pf_torch_stick_01.prefab")
-            };
-
-            SerializedObject serializedProfile = new SerializedObject(profile);
-            serializedProfile.FindProperty("_elderHousePrefab").objectReferenceValue =
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Prefabs/Buildings/pf_build_bighouse_01.prefab");
-            serializedProfile.FindProperty("_traderShopPrefab").objectReferenceValue =
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Prefabs/Buildings/pf_build_bighouse_02.prefab");
-            serializedProfile.FindProperty("_blacksmithPrefab").objectReferenceValue =
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/3DForge/Blueprints/PremiumBlueprints/PB_VIK_VEK/FrontierSettlement/BLUEPRINTS/Frontiers/PB_FS_Blacksmith.prefab");
-            serializedProfile.FindProperty("_healerHutPrefab").objectReferenceValue =
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/3DForge/Blueprints/PremiumBlueprints/PB_VIK_VEK/FrontierSettlement/BLUEPRINTS/Frontiers/PB_FS_House.prefab");
-            serializedProfile.FindProperty("_tavernPrefab").objectReferenceValue =
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Prefabs/Buildings/pf_build_bighouse_02.prefab");
-            SetObjectArray(serializedProfile.FindProperty("_residencePrefabs"), residencePrefabs);
-            serializedProfile.FindProperty("_storageBarnPrefab").objectReferenceValue =
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Prefabs/Buildings/pf_build_big_storage_01.prefab");
-            serializedProfile.FindProperty("_watchTowerPrefab").objectReferenceValue =
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Prefabs/Buildings/pf_build_tower_01.prefab");
-            serializedProfile.FindProperty("_stablePrefab").objectReferenceValue =
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Prefabs/Buildings/pf_build_barracks_single_01.prefab");
-            serializedProfile.FindProperty("_wallPanelPrefab").objectReferenceValue =
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Prefabs/Buildings/pf_build_wall_panel_01.prefab");
-            serializedProfile.FindProperty("_wallCornerPrefab").objectReferenceValue =
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Prefabs/Buildings/pf_build_wall_corner_01.prefab");
-            serializedProfile.FindProperty("_gatePrefab").objectReferenceValue =
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Prefabs/Buildings/pf_build_gate_01.prefab");
-            serializedProfile.FindProperty("_fencePrefab").objectReferenceValue =
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Prefabs/Props/pf_fence_01_double.prefab");
-            serializedProfile.FindProperty("_pathPrefab").objectReferenceValue =
-                AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Viking Village/Prefabs/Props/pf_plankpath_01.prefab");
-            SetObjectArray(serializedProfile.FindProperty("_ambientProps"), ambientProps);
-            serializedProfile.ApplyModifiedPropertiesWithoutUndo();
-            EditorUtility.SetDirty(profile);
-
-            return profile;
-        }
-
-        private static TerrainData LoadOrCreateTerrainData()
-        {
-            TerrainData terrainData = AssetDatabase.LoadAssetAtPath<TerrainData>(TerrainDataPath);
-            if (terrainData == null)
-            {
-                terrainData = new TerrainData();
-                AssetDatabase.CreateAsset(terrainData, TerrainDataPath);
+                return GothicMushroomColor;
             }
 
-            return terrainData;
+            return GothicMossColor;
         }
 
-        private static TerrainLayer LoadOrCreateForestFloorLayer(TerrainLayer sourceLayer)
+        private static bool ContainsAny(string value, params string[] needles)
         {
-            TerrainLayer terrainLayer = AssetDatabase.LoadAssetAtPath<TerrainLayer>(ForestFloorLayerPath);
-            if (terrainLayer == null)
+            for (int i = 0; i < needles.Length; i++)
             {
-                terrainLayer = new TerrainLayer();
-                if (sourceLayer != null)
+                if (value.IndexOf(needles[i], System.StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    terrainLayer.diffuseTexture = sourceLayer.diffuseTexture;
-                    terrainLayer.normalMapTexture = sourceLayer.normalMapTexture;
-                    terrainLayer.maskMapTexture = sourceLayer.maskMapTexture;
-                    terrainLayer.tileOffset = sourceLayer.tileOffset;
-                    terrainLayer.metallic = sourceLayer.metallic;
-                    terrainLayer.smoothness = sourceLayer.smoothness;
-                    terrainLayer.normalScale = sourceLayer.normalScale;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static Material GetGothicFoliageMaterial(Color color)
+        {
+            if (GothicFoliageMaterialCache.TryGetValue(color, out Material material))
+            {
+                return material;
+            }
+
+            if (_urpLitCache == null)
+            {
+                _urpLitCache = Shader.Find("Universal Render Pipeline/Lit");
+            }
+
+            material = new Material(_urpLitCache)
+            {
+                name = "Gothic Foliage " + ColorUtility.ToHtmlStringRGB(color)
+            };
+            material.SetColor("_BaseColor", color);
+            material.SetFloat("_Smoothness", 0.05f);
+            material.SetFloat("_Metallic", 0f);
+            GothicFoliageMaterialCache[color] = material;
+            return material;
+        }
+
+        private static Material MakeMat(string path, Color color, float smoothness)
+        {
+            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = color };
+            mat.SetFloat("_Smoothness", smoothness);
+            mat.SetFloat("_Metallic", 0f);
+            var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (existing == null)
+            {
+                AssetDatabase.CreateAsset(mat, path);
+                return mat;
+            }
+
+            existing.CopyPropertiesFromMaterial(mat);
+            return existing;
+        }
+
+        /// <summary>
+        /// Builds a foliage material: URP Lit with an alpha-cutout leaf texture and
+        /// double-sided rendering, so flat leaf cards read as leafy clumps instead of
+        /// solid triangles.
+        /// </summary>
+        private static Material MakeLeafMat(string path, string texturePath, Color tint)
+        {
+            // Ensure the leaf texture's alpha is read as transparency for cutout.
+            var importer = AssetImporter.GetAtPath(texturePath) as TextureImporter;
+            if (importer != null && (!importer.alphaIsTransparency || importer.alphaSource != TextureImporterAlphaSource.FromInput))
+            {
+                importer.alphaIsTransparency = true;
+                importer.alphaSource = TextureImporterAlphaSource.FromInput;
+                importer.SaveAndReimport();
+            }
+
+            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = tint };
+            var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(texturePath);
+            if (tex != null)
+            {
+                mat.SetTexture("_BaseMap", tex);
+            }
+
+            // Alpha clipping (cutout) + double-sided.
+            mat.SetFloat("_AlphaClip", 1f);
+            mat.SetFloat("_Cutoff", 0.45f);
+            mat.EnableKeyword("_ALPHATEST_ON");
+            mat.SetFloat("_Cull", 0f); // render both faces
+            mat.SetFloat("_Smoothness", 0.08f);
+            mat.SetFloat("_Metallic", 0f);
+            mat.renderQueue = 2450; // AlphaTest
+
+            var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (existing == null)
+            {
+                AssetDatabase.CreateAsset(mat, path);
+                return mat;
+            }
+
+            existing.CopyPropertiesFromMaterial(mat);
+            return existing;
+        }
+
+        private static void ApplyTreeMaterials(GameObject tree, Material bark, Material leaf)
+        {
+            foreach (Renderer r in tree.GetComponentsInChildren<Renderer>())
+            {
+                Material[] src = r.sharedMaterials;
+                var mats = new Material[src.Length];
+                for (int i = 0; i < src.Length; i++)
+                {
+                    // The imported FBX names slots "*_Leaf" / "*_Bark"; match on that so
+                    // foliage always gets the cutout leaf material regardless of slot order.
+                    string name = src[i] != null ? src[i].name : string.Empty;
+                    bool isLeaf = name.IndexOf("leaf", System.StringComparison.OrdinalIgnoreCase) >= 0;
+                    mats[i] = isLeaf ? leaf : bark;
                 }
 
-                terrainLayer.tileSize = new Vector2(7.5f, 7.5f);
-                AssetDatabase.CreateAsset(terrainLayer, ForestFloorLayerPath);
-            }
-
-            return terrainLayer;
-        }
-
-        private static void AssignLightingManager(LightingPhaseManager lightingManager, LightingPhaseProfile lightingProfile, Light directionalLight)
-        {
-            SerializedObject serializedManager = new SerializedObject(lightingManager);
-            serializedManager.FindProperty("_profile").objectReferenceValue = lightingProfile;
-            serializedManager.FindProperty("_directionalLight").objectReferenceValue = directionalLight;
-            serializedManager.FindProperty("_startingPhaseIndex").intValue = 0;
-            serializedManager.ApplyModifiedPropertiesWithoutUndo();
-        }
-
-        private static void AssignBootstrapper(
-            ForestEnvironmentBootstrapper bootstrapper,
-            TerrainEnvironmentProfile terrainProfile,
-            LightingPhaseProfile lightingProfile,
-            LightingPhaseManager lightingManager,
-            Transform contentRoot,
-            TerrainData terrainData)
-        {
-            SerializedObject serializedBootstrapper = new SerializedObject(bootstrapper);
-            serializedBootstrapper.FindProperty("_terrainProfile").objectReferenceValue = terrainProfile;
-            serializedBootstrapper.FindProperty("_lightingProfile").objectReferenceValue = lightingProfile;
-            serializedBootstrapper.FindProperty("_lightingManager").objectReferenceValue = lightingManager;
-            serializedBootstrapper.FindProperty("_contentRoot").objectReferenceValue = contentRoot;
-            serializedBootstrapper.FindProperty("_terrainData").objectReferenceValue = terrainData;
-            serializedBootstrapper.FindProperty("_buildOnAwake").boolValue = false;
-            serializedBootstrapper.ApplyModifiedPropertiesWithoutUndo();
-        }
-
-        private static void AssignVillageBootstrapper(
-            VillageEnvironmentBootstrapper bootstrapper,
-            VillageEnvironmentProfile villageProfile,
-            Terrain terrain,
-            Transform contentRoot)
-        {
-            SerializedObject serializedBootstrapper = new SerializedObject(bootstrapper);
-            serializedBootstrapper.FindProperty("_profile").objectReferenceValue = villageProfile;
-            serializedBootstrapper.FindProperty("_terrain").objectReferenceValue = terrain;
-            serializedBootstrapper.FindProperty("_contentRoot").objectReferenceValue = contentRoot;
-            serializedBootstrapper.FindProperty("_buildOnAwake").boolValue = false;
-            serializedBootstrapper.ApplyModifiedPropertiesWithoutUndo();
-        }
-
-        private static void SetObjectArray(SerializedProperty arrayProperty, Object[] values)
-        {
-            arrayProperty.arraySize = values.Length;
-            for (int i = 0; i < values.Length; i++)
-            {
-                arrayProperty.GetArrayElementAtIndex(i).objectReferenceValue = values[i];
+                r.sharedMaterials = mats;
             }
         }
 
-        private static void EnsureFolder(string folderPath)
+        private static void AddTrunkCollider(GameObject tree, float worldHeight)
         {
-            if (AssetDatabase.IsValidFolder(folderPath))
+            float scale = Mathf.Abs(tree.transform.localScale.x);
+            float inv = scale > 0.001f ? 1f / scale : 1f;
+            var col = tree.AddComponent<CapsuleCollider>();
+            col.radius = 0.4f * inv;
+            col.height = Mathf.Max(worldHeight * inv, col.radius * 2f);
+            col.center = new Vector3(0f, worldHeight * 0.5f * inv, 0f);
+        }
+
+        private static void AddBoundsCollider(GameObject root)
+        {
+            if (!TryGetCombinedRendererBounds(root, out Bounds bounds))
             {
                 return;
             }
 
-            string parentFolder = folderPath.Substring(0, folderPath.LastIndexOf('/'));
-            string folderName = folderPath.Substring(folderPath.LastIndexOf('/') + 1);
-            EnsureFolder(parentFolder);
-            AssetDatabase.CreateFolder(parentFolder, folderName);
+            float scale = Mathf.Abs(root.transform.localScale.x);
+            float inv = scale > 0.001f ? 1f / scale : 1f;
+            var col = root.AddComponent<BoxCollider>();
+            col.center = root.transform.InverseTransformPoint(bounds.center);
+            col.size = bounds.size * inv;
+        }
+
+        // ---------------------------------------------------------------- village
+
+        private static void BuildVillage(Transform parent)
+        {
+            string[] houses =
+            {
+                "pf_build_small_house_straw_roof_01",
+                "pf_build_small_house_tall_roof_01",
+                "pf_build_small_house_01",
+                "pf_build_bighouse_01",
+                "pf_build_storage_01",
+                "pf_build_barracks_single_01"
+            };
+
+            var rng = new System.Random(77);
+            int count = 6;
+            for (int i = 0; i < count; i++)
+            {
+                string name = houses[i % houses.Length];
+                GameObject prefab = LoadPrefab($"{VikingBuildings}/{name}.prefab");
+                float angle = i / (float)count * Mathf.PI * 2f;
+                var pos = VillageCenter + new Vector3(Mathf.Cos(angle) * 16f, 0f, Mathf.Sin(angle) * 16f);
+                if (prefab != null)
+                {
+                    var house = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
+                    house.transform.position = GroundedPosition(pos);
+                    house.transform.rotation = Quaternion.LookRotation(VillageCenter - pos);
+                }
+                else
+                {
+                    // Fallback block so the village exists even if the pack is missing.
+                    var block = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    block.transform.SetParent(parent);
+                    block.transform.position = GroundedPosition(pos + Vector3.up * 2f);
+                    block.transform.localScale = new Vector3(6f, 4f, 6f);
+                }
+            }
+        }
+
+        private static void BuildBurningVillage(Transform parent)
+        {
+            // Reuse the same buildings tinted dark, plus fire/smoke particle stand-ins.
+            BuildVillage(parent);
+            foreach (Transform child in parent)
+            {
+                var renderers = child.GetComponentsInChildren<Renderer>();
+                foreach (Renderer r in renderers)
+                {
+                    var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"))
+                    {
+                        color = new Color(0.10f, 0.07f, 0.05f)
+                    };
+                    r.sharedMaterial = mat;
+                }
+            }
+
+            // Orange fire light for atmosphere.
+            var fire = new GameObject("FireGlow");
+            fire.transform.SetParent(parent);
+            fire.transform.position = GroundedPosition(VillageCenter + Vector3.up * 4f);
+            var light = fire.AddComponent<Light>();
+            light.type = LightType.Point;
+            light.color = new Color(1f, 0.45f, 0.15f);
+            light.intensity = 6f;
+            light.range = 45f;
+
+            // Fire + smoke + embers on each burning building.
+            foreach (Transform child in parent)
+            {
+                if (!child.name.StartsWith("pf_build") && !child.name.StartsWith("Cube"))
+                {
+                    continue;
+                }
+
+                Vector3 top = child.position + Vector3.up * 4f;
+                var fx = new GameObject("BurnFX");
+                fx.transform.SetParent(parent);
+                fx.transform.position = top;
+                VfxFactory.BuildFire(fx.transform);
+                VfxFactory.BuildSmoke(fx.transform);
+                VfxFactory.BuildEmbers(fx.transform);
+            }
+        }
+
+        // ---------------------------------------------------------------- player
+
+        private sealed class PlayerRig
+        {
+            public GameObject Root;
+            public Camera Camera;
+            public PlayerMovementController Movement;
+            public PlayerVitals Vitals;
+            public PlayerInventory Inventory;
+            public CombatController Combat;
+            public AetherPool AetherPool;
+        }
+
+        private static PlayerRig BuildPlayer(GrauwaldContentFactory.Content content)
+        {
+            EnsureTag("Player");
+
+            var root = new GameObject("Player");
+            root.tag = "Player";
+            root.transform.position = GroundedPosition(PlayerStart);
+
+            var cc = root.AddComponent<CharacterController>();
+            cc.height = 1.8f;
+            cc.radius = 0.35f;
+            cc.center = new Vector3(0f, 0.9f, 0f);
+
+            // Visible rigged body (Blink human) with a locomotion animator.
+            AnimatorController locomotion = CharacterAnimatorFactory.BuildLocomotionController();
+            GameObject body = InstantiateCharacter(root.transform, locomotion, out Animator bodyAnimator);
+
+            var inputConfig = ScriptableObject.CreateInstance<PlayerInputConfig>();
+            AssetDatabase.CreateAsset(inputConfig, "Assets/ScriptableObjects/Player_InputConfig.asset");
+
+            var vitals = root.AddComponent<PlayerVitals>();
+            SetRef(vitals, "_inputConfig", inputConfig);
+            SetFloat(vitals, "_maxHealth", 100f);
+
+            var movement = root.AddComponent<PlayerMovementController>();
+            SetRef(movement, "_inputConfig", inputConfig);
+            SetRef(movement, "_vitals", vitals);
+
+            var inventory = root.AddComponent<PlayerInventory>();
+
+            var aetherPool = root.AddComponent<AetherPool>();
+
+            // Weapon hitbox on a child.
+            var hitboxGo = new GameObject("WeaponHitbox");
+            hitboxGo.transform.SetParent(root.transform, false);
+            hitboxGo.transform.localPosition = new Vector3(0f, 1f, 1.2f);
+            var hitboxCol = hitboxGo.AddComponent<BoxCollider>();
+            hitboxCol.isTrigger = true;
+            hitboxCol.size = new Vector3(1.4f, 1.4f, 2.4f);
+            var hitbox = hitboxGo.AddComponent<WeaponHitbox>();
+
+            var combat = root.AddComponent<CombatController>();
+            SetRef(combat, "_weaponDefinition", content.Sword);
+            SetRef(combat, "_movementController", movement);
+            SetRef(combat, "_weaponHitbox", hitbox);
+
+            var bridge = root.AddComponent<AetherCombatBridge>();
+            SetRef(bridge, "_aetherPool", aetherPool);
+            SetRef(bridge, "_movementController", movement);
+            SetRef(bridge, "_combatController", combat);
+
+            // Hand glow light.
+            var handGo = new GameObject("HandGlow");
+            handGo.transform.SetParent(root.transform, false);
+            handGo.transform.localPosition = new Vector3(0.3f, 1f, 0.5f);
+            var handLight = handGo.AddComponent<Light>();
+            handLight.type = LightType.Point;
+            handLight.color = new Color(0.3f, 0.85f, 0.95f);
+            handLight.range = 4f;
+            handLight.intensity = 0f;
+            var glow = root.AddComponent<AetherHandGlow>();
+            SetRef(glow, "_aetherPool", aetherPool);
+            SetRef(glow, "_handLight", handLight);
+
+            // Corruption penalty: overusing aether shrinks max HP.
+            var corruption = root.AddComponent<CorruptionEffect>();
+            SetRef(corruption, "_aetherPool", aetherPool);
+            SetRef(corruption, "_vitals", vitals);
+
+            // Aether spark particles on the hand.
+            GameObject handParticles = VfxFactory.BuildHandGlow(handGo.transform, new Color(0.4f, 0.9f, 1f));
+            var ps = handParticles.GetComponent<ParticleSystem>();
+            if (ps != null)
+            {
+                SetRef(glow, "_handParticles", ps);
+            }
+
+            // Camera.
+            var camGo = new GameObject("Main Camera");
+            camGo.tag = "MainCamera";
+            var cam = camGo.AddComponent<Camera>();
+            camGo.AddComponent<AudioListener>();
+            var camData = camGo.AddComponent<UniversalAdditionalCameraData>();
+            camData.renderPostProcessing = true;
+            camData.antialiasing = AntialiasingMode.TemporalAntiAliasing;
+            var camCtrl = camGo.AddComponent<Ashenveil.CameraRig.ThirdPersonCameraController>();
+            SetRef(camCtrl, "_target", root.transform);
+            SetRef(movement, "_cameraTransform", camGo.transform);
+
+            // Drive the rigged body's animator from movement state.
+            if (bodyAnimator != null)
+            {
+                var animCtrl = root.AddComponent<PlayerAnimationController>();
+                SetRef(animCtrl, "_animator", bodyAnimator);
+                SetRef(animCtrl, "_movementController", movement);
+            }
+
+            return new PlayerRig
+            {
+                Root = root,
+                Camera = cam,
+                Movement = movement,
+                Vitals = vitals,
+                Inventory = inventory,
+                Combat = combat,
+                AetherPool = aetherPool
+            };
+        }
+
+        // ---------------------------------------------------------------- crystal
+
+        private static AetherCrystal BuildCrystal(AetherPool pool)
+        {
+            var go = new GameObject("AetherCrystal");
+            go.transform.position = GroundedPosition(CrystalPos);
+            go.transform.rotation = Quaternion.Euler(0f, 30f, 0f);
+
+            var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"))
+            {
+                color = new Color(0.2f, 0.7f, 0.85f)
+            };
+            mat.EnableKeyword("_EMISSION");
+            mat.SetColor("_EmissionColor", new Color(0.3f, 1.4f, 1.7f));
+            mat.SetFloat("_Smoothness", 0.85f);
+            AssetDatabase.CreateAsset(mat, "Assets/Settings/CrystalMaterial.asset");
+
+            // Faceted crystal-cluster model (replaces the placeholder cube).
+            var crystalModel = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Environment/Props/AetherCrystal.fbx");
+            if (crystalModel != null)
+            {
+                var model = (GameObject)PrefabUtility.InstantiatePrefab(crystalModel, go.transform);
+                model.name = "Model";
+                model.transform.localPosition = Vector3.zero;
+                foreach (Renderer r in model.GetComponentsInChildren<Renderer>())
+                {
+                    r.sharedMaterial = mat;
+                }
+            }
+
+            // Interaction collider sized to the cluster.
+            var col = go.AddComponent<CapsuleCollider>();
+            col.height = 3f;
+            col.radius = 0.8f;
+            col.center = new Vector3(0f, 1.5f, 0f);
+
+            var glowLight = new GameObject("CrystalLight");
+            glowLight.transform.SetParent(go.transform, false);
+            var l = glowLight.AddComponent<Light>();
+            l.type = LightType.Point;
+            l.color = new Color(0.3f, 0.9f, 1f);
+            l.range = 14f;
+            l.intensity = 4f;
+
+            var crystal = go.AddComponent<AetherCrystal>();
+            SetRef(crystal, "_aetherPool", pool);
+
+            // Aether shimmer particles rising from the crystal.
+            VfxFactory.BuildAetherShimmer(go.transform, new Color(0.35f, 0.9f, 1f));
+
+            // Aether hum ambience localized to the crystal.
+            go.AddComponent<Ashenveil.Audio.AetherAmbienceZone>();
+            return crystal;
+        }
+
+        // ---------------------------------------------------------------- boss
+
+        private static (MutatedWolfBossController, BossArenaTrigger) BuildBoss(PlayerRig rig)
+        {
+            var bossGo = new GameObject("MutatedWolf");
+            bossGo.transform.position = GroundedPosition(BossArenaPos + Vector3.up * 0.2f);
+            var cc = bossGo.AddComponent<CharacterController>();
+            cc.height = 1.4f;
+            cc.radius = 0.6f;
+            cc.center = new Vector3(0f, 0.8f, 0f);
+
+            // Mutated wolf model, scaled up and tinted sickly aether-purple.
+            GameObject model = AttachAnimalModel(bossGo.transform, "Wolf");
+            model.transform.localScale = model.transform.localScale * 1.8f;
+            UrpFixMaterials(model);
+            ApplyBossCorruptionMaterials(model);
+
+            VfxFactory.BuildAetherShimmer(bossGo.transform, new Color(0.5f, 0.2f, 0.9f));
+
+            var corruptionLightGo = new GameObject("CorruptedAetherLight");
+            corruptionLightGo.transform.SetParent(bossGo.transform, false);
+            corruptionLightGo.transform.localPosition = new Vector3(0f, 1.1f, 0f);
+            var corruptionLight = corruptionLightGo.AddComponent<Light>();
+            corruptionLight.type = LightType.Point;
+            corruptionLight.color = new Color(0.5f, 0.2f, 0.9f);
+            corruptionLight.range = 6f;
+            corruptionLight.intensity = 2f;
+
+            var boss = bossGo.AddComponent<MutatedWolfBossController>();
+
+            var arenaGo = new GameObject("BossArena");
+            arenaGo.transform.position = GroundedPosition(BossArenaPos);
+            var trigger = arenaGo.AddComponent<SphereCollider>();
+            trigger.isTrigger = true;
+            trigger.radius = 14f;
+            var arena = arenaGo.AddComponent<BossArenaTrigger>();
+            SetRef(arena, "_boss", boss);
+
+            // Chase + damage the player (damageable resolved from the target at runtime).
+            SetRef(boss, "_target", rig.Root.transform);
+
+            return (boss, arena);
+        }
+
+        private static void ApplyBossCorruptionMaterials(GameObject model)
+        {
+            Color corruptionTint = new Color(0.35f, 0.30f, 0.42f, 1f);
+            Color emissionColor = new Color(0.28f, 0.10f, 0.42f) * 1.4f;
+
+            foreach (Renderer r in model.GetComponentsInChildren<Renderer>(true))
+            {
+                Material[] src = r.sharedMaterials;
+                var dst = new Material[src.Length];
+                for (int i = 0; i < src.Length; i++)
+                {
+                    Material m = src[i];
+                    if (m == null)
+                    {
+                        continue;
+                    }
+
+                    var clone = new Material(m);
+                    Color baseColor = Color.white;
+                    if (clone.HasProperty("_BaseColor"))
+                    {
+                        baseColor = clone.GetColor("_BaseColor");
+                    }
+                    else if (clone.HasProperty("_Color"))
+                    {
+                        baseColor = clone.GetColor("_Color");
+                    }
+
+                    Color corrupted = new Color(
+                        baseColor.r * corruptionTint.r,
+                        baseColor.g * corruptionTint.g,
+                        baseColor.b * corruptionTint.b,
+                        baseColor.a);
+
+                    if (clone.HasProperty("_BaseColor"))
+                    {
+                        clone.SetColor("_BaseColor", corrupted);
+                    }
+
+                    if (clone.HasProperty("_Color"))
+                    {
+                        clone.SetColor("_Color", corrupted);
+                    }
+
+                    clone.EnableKeyword("_EMISSION");
+                    if (clone.HasProperty("_EmissionColor"))
+                    {
+                        clone.SetColor("_EmissionColor", emissionColor);
+                    }
+
+                    if (clone.HasProperty("_Smoothness"))
+                    {
+                        clone.SetFloat("_Smoothness", 0.1f);
+                    }
+
+                    dst[i] = clone;
+                }
+
+                r.sharedMaterials = dst;
+            }
+        }
+
+        // ---------------------------------------------------------------- wildlife
+
+        private const string AnimalDir = "Assets/Environment/Animals";
+
+        private static void BuildWildlife(GrauwaldContentFactory.Content content, Transform threat)
+        {
+            WildlifeAgent deerPrefab = BuildWildlifeAgentPrefab("Deer");
+            WildlifeAgent boarPrefab = BuildWildlifeAgentPrefab("Boar");
+
+            // Along the forest walk from the wake spot (z=-130) up toward the village.
+            SpawnHerd("DeerSpawner", content.Deer, deerPrefab, threat, new Vector3(18f, 0f, -95f), 3);
+            SpawnHerd("BoarSpawner", content.Boar, boarPrefab, threat, new Vector3(-22f, 0f, -60f), 2);
+        }
+
+        /// <summary>Instantiates a low-poly animal model under a parent, or a capsule fallback.</summary>
+        private static GameObject AttachAnimalModel(Transform parent, string species)
+        {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>($"{AnimalDir}/{species}.fbx");
+            if (prefab == null)
+            {
+                var cap = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                cap.transform.SetParent(parent, false);
+                Object.DestroyImmediate(cap.GetComponent<Collider>());
+                return cap;
+            }
+
+            var model = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
+            model.name = "Model";
+            model.transform.localPosition = Vector3.zero;
+            float s = model.transform.localScale.x; // FBX unit-compensation
+            UrpFixMaterials(model);
+            return model;
+        }
+
+        private static WildlifeAgent BuildWildlifeAgentPrefab(string species)
+        {
+            var go = new GameObject($"WildlifeAgent_{species}");
+            var cc = go.AddComponent<CharacterController>();
+            cc.height = 1.1f;
+            cc.radius = 0.4f;
+            cc.center = new Vector3(0f, 0.55f, 0f);
+            go.AddComponent<WildlifeHealth>();
+            var agent = go.AddComponent<WildlifeAgent>();
+
+            AttachAnimalModel(go.transform, species);
+
+            string prefabPath = $"Assets/ScriptableObjects/Wildlife/WildlifeAgent_{species}.prefab";
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, prefabPath);
+            Object.DestroyImmediate(go);
+            return prefab.GetComponent<WildlifeAgent>();
+        }
+
+        private static void SpawnHerd(string name, WildlifeSpecies species, WildlifeAgent agentPrefab, Transform threat, Vector3 center, int count)
+        {
+            var spawnerGo = new GameObject(name);
+            spawnerGo.transform.position = GroundedPosition(center);
+            var spawner = spawnerGo.AddComponent<WildlifeSpawner>();
+            SetRef(spawner, "_species", species);
+            SetRef(spawner, "_agentPrefab", agentPrefab);
+            SetInt(spawner, "_maxAlive", count);
+            SetRef(spawner, "_threat", threat);
+
+            var points = new List<Object>();
+            for (int i = 0; i < count; i++)
+            {
+                var p = new GameObject("Spawn" + i);
+                p.transform.SetParent(spawnerGo.transform);
+                p.transform.position = GroundedPosition(center + new Vector3(i * 4f - count * 2f, 0f, 0f));
+                points.Add(p.transform);
+            }
+
+            SetList(spawner, "_spawnPoints", points);
+        }
+
+        // ---------------------------------------------------------------- UI
+
+        private sealed class UiRefs
+        {
+            public HudController Hud;
+            public FadeScreenController Fade;
+            public EndScreenController End;
+            public DialogScreenController Dialog;
+            public InventoryScreenController Inventory;
+            public TradeScreenController Trade;
+            public JournalScreenController Journal;
+            public BossBarController BossBar;
+        }
+
+        private static UiRefs BuildUi(PlayerRig rig, GrauwaldContentFactory.Content content)
+        {
+            var uiRoot = new GameObject("UI");
+
+            var hud = NewChild(uiRoot, "HUD").AddComponent<HudController>();
+            SetRef(hud, "_vitals", rig.Vitals);
+            SetRef(hud, "_aetherPool", rig.AetherPool);
+
+            var fade = NewChild(uiRoot, "Fade").AddComponent<FadeScreenController>();
+            var end = NewChild(uiRoot, "EndScreen").AddComponent<EndScreenController>();
+            var dialog = NewChild(uiRoot, "DialogScreen").AddComponent<DialogScreenController>();
+
+            var inv = NewChild(uiRoot, "InventoryScreen").AddComponent<InventoryScreenController>();
+            SetRef(inv, "_movementController", rig.Movement);
+            SetRef(inv, "_playerInventory", rig.Inventory);
+
+            var trade = NewChild(uiRoot, "TradeScreen").AddComponent<TradeScreenController>();
+            var journal = NewChild(uiRoot, "JournalScreen").AddComponent<JournalScreenController>();
+            var bossBar = NewChild(uiRoot, "BossBar").AddComponent<BossBarController>();
+
+            // Interactor needs HUD to display prompts.
+            var interactor = rig.Root.AddComponent<PlayerInteractor>();
+            SetRef(interactor, "_camera", rig.Camera);
+            SetRef(interactor, "_movementController", rig.Movement);
+            SetRef(interactor, "_hud", hud);
+
+            // Menus: main menu, pause (ESC), death/respawn.
+            var mainMenu = NewChild(uiRoot, "MainMenu").AddComponent<MainMenuController>();
+            var pauseMenu = NewChild(uiRoot, "PauseMenu").AddComponent<PauseMenuController>();
+            var deathScreen = NewChild(uiRoot, "DeathScreen").AddComponent<DeathScreenController>();
+
+            var pauseInput = rig.Root.AddComponent<PauseInput>();
+
+            var menuBoot = NewChild(uiRoot, "MenuBootstrapper").AddComponent<MenuBootstrapper>();
+            SetRef(menuBoot, "_mainMenu", mainMenu);
+            SetRef(menuBoot, "_pauseMenu", pauseMenu);
+            SetRef(menuBoot, "_pauseInput", pauseInput);
+
+            var gameOver = NewChild(uiRoot, "GameOver").AddComponent<GameOverController>();
+            SetRef(gameOver, "_vitals", rig.Vitals);
+            SetRef(gameOver, "_deathScreen", deathScreen);
+
+            return new UiRefs
+            {
+                Hud = hud, Fade = fade, End = end, Dialog = dialog,
+                Inventory = inv, Trade = trade, Journal = journal, BossBar = bossBar
+            };
+        }
+
+        private static DemoDirector BuildDirector(UiRefs ui, GameObject villageNormal, GameObject villageBurning)
+        {
+            var go = new GameObject("DemoDirector");
+            var director = go.AddComponent<DemoDirector>();
+            SetRef(director, "_hud", ui.Hud);
+            SetRef(director, "_fade", ui.Fade);
+            SetRef(director, "_endScreen", ui.End);
+            SetRef(director, "_villageNormalRoot", villageNormal);
+            SetRef(director, "_villageBurningRoot", villageBurning);
+            return director;
+        }
+
+        // ---------------------------------------------------------------- NPCs
+
+        private static List<GameServices.QuestItemLink> BuildQuestItems(GrauwaldContentFactory.Content content, PlayerInventory inventory)
+        {
+            var root = new GameObject("QuestItems");
+            var rng = new System.Random(909);
+
+            // 5 Blutmoos herbs scattered along the forest walk (z between -120 and -30).
+            for (int i = 0; i < 5; i++)
+            {
+                float x = (float)(rng.NextDouble() * 60.0 - 30.0);
+                float z = -120f + i * 20f;
+                MakePickup(root.transform, "Herb_" + i, content.Herb, 1, new Vector3(x, 0f, z),
+                    new Color(0.5f, 0.1f, 0.2f), "Assets/Environment/Props/HerbPlant.fbx");
+            }
+
+            // The smith's lost hammer near the rocks by the crystal path.
+            MakePickup(root.transform, "Hammer", content.Hammer, 1, new Vector3(-14f, 0.4f, 40f),
+                new Color(0.4f, 0.3f, 0.2f), null);
+
+            return new List<GameServices.QuestItemLink>
+            {
+                new GameServices.QuestItemLink { Item = content.Herb, QuestId = "quest_herbs", ObjectiveId = "collect_herbs" },
+                new GameServices.QuestItemLink { Item = content.Hammer, QuestId = "quest_tool", ObjectiveId = "find_hammer" }
+            };
+        }
+
+        private static void MakePickup(Transform parent, string name, ItemDefinition item, int qty, Vector3 pos, Color color, string modelPath)
+        {
+            var go = new GameObject("Pickup_" + name);
+            go.name = "Pickup_" + name;
+            go.transform.SetParent(parent, false);
+            go.transform.position = GroundedPosition(pos);
+
+            var trigger = go.AddComponent<SphereCollider>();
+            trigger.isTrigger = true;
+            trigger.radius = 0.5f;
+            trigger.center = new Vector3(0f, 0.4f, 0f);
+
+            GameObject prefab = string.IsNullOrEmpty(modelPath) ? null : AssetDatabase.LoadAssetAtPath<GameObject>(modelPath);
+            if (prefab != null)
+            {
+                var model = (GameObject)PrefabUtility.InstantiatePrefab(prefab, go.transform);
+                model.name = "Model";
+                model.transform.localPosition = Vector3.zero;
+                UrpFixMaterials(model);
+            }
+            else
+            {
+                var visual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                visual.name = "Model";
+                visual.transform.SetParent(go.transform, false);
+                visual.transform.localPosition = Vector3.zero;
+                visual.transform.localScale = Vector3.one * 0.5f;
+                Object.DestroyImmediate(visual.GetComponent<Collider>());
+
+                var mat = new Material(Shader.Find("Universal Render Pipeline/Lit")) { color = color };
+                mat.EnableKeyword("_EMISSION");
+                mat.SetColor("_EmissionColor", color * 1.5f);
+                visual.GetComponent<MeshRenderer>().sharedMaterial = mat;
+            }
+
+            var pickup = go.AddComponent<ItemPickup>();
+            SetPickupItem(pickup, item, qty);
+        }
+
+        private static void SetPickupItem(ItemPickup pickup, ItemDefinition item, int qty)
+        {
+            var so = new SerializedObject(pickup);
+            SerializedProperty arr = so.FindProperty("_items");
+            arr.arraySize = 1;
+            SerializedProperty e = arr.GetArrayElementAtIndex(0);
+            e.FindPropertyRelative("_item").objectReferenceValue = item;
+            e.FindPropertyRelative("_quantity").intValue = qty;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void BuildNpcs(GrauwaldContentFactory.Content content, PlayerRig rig, UiRefs ui, DemoDirector director, List<GameServices.QuestItemLink> questLinks)
+        {
+            var speakers = new List<Object>();
+            var vendors = new List<Object>();
+
+            DialogSpeaker healer = BuildSpeaker("Heilerin", content.HealerDialog, VillageCenter + new Vector3(6f, 0f, 4f),
+                new Color(0.75f, 0.9f, 0.8f));
+            DialogSpeaker smith = BuildSpeaker("Schmied", content.SmithDialog, VillageCenter + new Vector3(-6f, 0f, 4f),
+                new Color(0.7f, 0.55f, 0.5f), 1.08f);
+            speakers.Add(healer);
+            speakers.Add(smith);
+
+            VendorController vendor = BuildVendor(content, rig.Inventory, VillageCenter + new Vector3(0f, 0f, 8f),
+                new Color(0.7f, 0.75f, 0.9f));
+            vendors.Add(vendor);
+
+            var servicesGo = new GameObject("GameServices");
+            var services = servicesGo.AddComponent<GameServices>();
+            SetRef(services, "_playerInventory", rig.Inventory);
+            SetRef(services, "_dialogScreen", ui.Dialog);
+            SetRef(services, "_tradeScreen", ui.Trade);
+            SetRef(services, "_journalScreen", ui.Journal);
+            SetList(services, "_quests", ToObjectList(content.AllQuests));
+            SetList(services, "_speakers", speakers);
+            SetList(services, "_vendors", vendors);
+            SetQuestItemLinks(services, questLinks);
+        }
+
+        private static void SetQuestItemLinks(Object target, List<GameServices.QuestItemLink> links)
+        {
+            var so = new SerializedObject(target);
+            SerializedProperty prop = so.FindProperty("_questItemLinks");
+            prop.arraySize = links.Count;
+            for (int i = 0; i < links.Count; i++)
+            {
+                SerializedProperty e = prop.GetArrayElementAtIndex(i);
+                e.FindPropertyRelative("Item").objectReferenceValue = links[i].Item;
+                e.FindPropertyRelative("QuestId").stringValue = links[i].QuestId;
+                e.FindPropertyRelative("ObjectiveId").stringValue = links[i].ObjectiveId;
+            }
+
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static GameObject BuildNpcRoot(string name, Vector3 pos, Vector3 facePos, Color? tint = null, float bodyScale = 1f)
+        {
+            var go = new GameObject(name);
+            go.transform.position = GroundedPosition(pos);
+            go.transform.rotation = Quaternion.LookRotation(Flatten(facePos - pos));
+
+            // Interaction + physical presence collider on the root.
+            var col = go.AddComponent<CapsuleCollider>();
+            col.radius = 0.4f;
+            col.height = 1.8f;
+            col.center = new Vector3(0f, 0.9f, 0f);
+
+            // Rigged body idling (reuses the player's locomotion controller at Speed 0).
+            GameObject body = InstantiateCharacter(go.transform, CharacterAnimatorFactory.LoadLocomotionController(), out _, tint);
+            body.transform.localScale = body.transform.localScale * bodyScale;
+            return go;
+        }
+
+        private static DialogSpeaker BuildSpeaker(string npcName, DialogGraph graph, Vector3 pos, Color? tint = null, float bodyScale = 1f)
+        {
+            GameObject go = BuildNpcRoot("NPC_" + npcName, pos, VillageCenter, tint, bodyScale);
+            var speaker = go.AddComponent<DialogSpeaker>();
+            SetRef(speaker, "_dialogGraph", graph);
+            SetString(speaker, "_npcDisplayName", npcName);
+            return speaker;
+        }
+
+        private static VendorController BuildVendor(GrauwaldContentFactory.Content content, PlayerInventory inventory, Vector3 pos, Color? tint = null)
+        {
+            GameObject go = BuildNpcRoot("NPC_Vendor", pos, VillageCenter, tint);
+            var vendor = go.AddComponent<VendorController>();
+            SetRef(vendor, "_vendorDefinition", content.Vendor);
+            SetRef(vendor, "_playerInventory", inventory);
+            return vendor;
+        }
+
+        private static Vector3 Flatten(Vector3 v)
+        {
+            v.y = 0f;
+            return v.sqrMagnitude < 1e-4f ? Vector3.forward : v.normalized;
+        }
+
+        private static void BossBind(BossBarController bar, MutatedWolfBossController boss, BossArenaTrigger arena)
+        {
+            SetRef(bar, "_boss", boss);
+            SetRef(bar, "_arenaTrigger", arena);
+        }
+
+        // ---------------------------------------------------------------- helpers
+
+        private static bool Near(Vector3 a, Vector3 b, float dist)
+        {
+            a.y = 0f; b.y = 0f;
+            return Vector3.Distance(a, b) < dist;
+        }
+
+        private static Shader _urpLitCache;
+
+        /// <summary>
+        /// Rebuilds a character's materials as URP/Lit, preserving the albedo texture and
+        /// tint. Blink ships built-in/HDRP materials that render magenta under URP; this
+        /// keeps the look without a full project-wide material upgrade.
+        /// </summary>
+        private static void UrpFixMaterials(GameObject root)
+        {
+            if (_urpLitCache == null)
+            {
+                _urpLitCache = Shader.Find("Universal Render Pipeline/Lit");
+            }
+
+            var cache = new Dictionary<Material, Material>();
+            foreach (Renderer r in root.GetComponentsInChildren<Renderer>(true))
+            {
+                Material[] src = r.sharedMaterials;
+                var dst = new Material[src.Length];
+                for (int i = 0; i < src.Length; i++)
+                {
+                    Material m = src[i];
+                    if (m == null)
+                    {
+                        continue;
+                    }
+
+                    if (m.shader != null && m.shader.name == "Universal Render Pipeline/Lit")
+                    {
+                        dst[i] = m;
+                        continue;
+                    }
+
+                    if (!cache.TryGetValue(m, out Material converted))
+                    {
+                        converted = new Material(_urpLitCache);
+                        converted.name = m.name;
+                        Texture main = m.HasProperty("_MainTex") ? m.GetTexture("_MainTex") : m.mainTexture;
+                        if (main == null && m.HasProperty("_BaseMap"))
+                        {
+                            main = m.GetTexture("_BaseMap");
+                        }
+
+                        if (main != null)
+                        {
+                            converted.SetTexture("_BaseMap", main);
+                        }
+
+                        if (m.HasProperty("_Color"))
+                        {
+                            converted.SetColor("_BaseColor", m.GetColor("_Color"));
+                        }
+
+                        converted.SetFloat("_Smoothness", 0.25f);
+                        cache[m] = converted;
+                    }
+
+                    dst[i] = converted;
+                }
+
+                r.sharedMaterials = dst;
+            }
+        }
+
+        private static void ApplyCharacterTint(GameObject root, Color tint)
+        {
+            foreach (Renderer r in root.GetComponentsInChildren<Renderer>(true))
+            {
+                Material[] src = r.sharedMaterials;
+                var dst = new Material[src.Length];
+                for (int i = 0; i < src.Length; i++)
+                {
+                    Material m = src[i];
+                    if (m == null)
+                    {
+                        continue;
+                    }
+
+                    var clone = new Material(m);
+                    Color baseColor = Color.white;
+                    if (clone.HasProperty("_BaseColor"))
+                    {
+                        baseColor = clone.GetColor("_BaseColor");
+                    }
+                    else if (clone.HasProperty("_Color"))
+                    {
+                        baseColor = clone.GetColor("_Color");
+                    }
+                    var tinted = new Color(
+                        baseColor.r * tint.r,
+                        baseColor.g * tint.g,
+                        baseColor.b * tint.b,
+                        baseColor.a);
+
+                    if (clone.HasProperty("_BaseColor"))
+                    {
+                        clone.SetColor("_BaseColor", tinted);
+                    }
+
+                    if (clone.HasProperty("_Color"))
+                    {
+                        clone.SetColor("_Color", tinted);
+                    }
+
+                    dst[i] = clone;
+                }
+
+                r.sharedMaterials = dst;
+            }
+        }
+
+        private const string CharacterPrefab =
+            "Assets/Blink/Art/Characters/Stylized/Humans/Prefabs_Humans/HumanMale_Character_Free.prefab";
+
+        /// <summary>
+        /// Instantiates the Blink human under a parent, assigns a locomotion controller,
+        /// and returns the body plus its Animator. Falls back to a capsule if the prefab
+        /// is missing so scene builds never break.
+        /// </summary>
+        private static GameObject InstantiateCharacter(Transform parent, AnimatorController controller, out Animator animator, Color? tint = null)
+        {
+            GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(CharacterPrefab);
+            if (prefab == null)
+            {
+                var capsule = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+                capsule.name = "Body";
+                capsule.transform.SetParent(parent, false);
+                capsule.transform.localPosition = new Vector3(0f, 0.9f, 0f);
+                Object.DestroyImmediate(capsule.GetComponent<Collider>());
+                animator = null;
+                if (tint.HasValue)
+                {
+                    ApplyCharacterTint(capsule, tint.Value);
+                }
+
+                return capsule;
+            }
+
+            var body = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
+            body.name = "Body";
+            body.transform.localPosition = Vector3.zero;
+            body.transform.localRotation = Quaternion.identity;
+
+            animator = body.GetComponent<Animator>();
+            if (animator == null)
+            {
+                animator = body.GetComponentInChildren<Animator>();
+            }
+
+            if (animator != null && controller != null)
+            {
+                animator.runtimeAnimatorController = controller;
+                animator.applyRootMotion = false;
+            }
+
+            UrpFixMaterials(body);
+            if (tint.HasValue)
+            {
+                ApplyCharacterTint(body, tint.Value);
+            }
+
+            return body;
+        }
+
+        private static GameObject NewChild(GameObject parent, string name)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent.transform, false);
+            return go;
+        }
+
+        private static GameObject LoadPrefab(string path)
+        {
+            return AssetDatabase.LoadAssetAtPath<GameObject>(path);
+        }
+
+        private static List<Object> ToObjectList<T>(List<T> items) where T : Object
+        {
+            var list = new List<Object>();
+            foreach (T item in items)
+            {
+                list.Add(item);
+            }
+
+            return list;
+        }
+
+        private static void EnsureScenesFolder()
+        {
+            if (!AssetDatabase.IsValidFolder("Assets/Scenes"))
+            {
+                AssetDatabase.CreateFolder("Assets", "Scenes");
+            }
+        }
+
+        private static void EnsureTag(string tag)
+        {
+            EnsureTagExists(tag);
+        }
+
+        private static void EnsureTagExists(string tag)
+        {
+            var asset = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset");
+            if (asset.Length == 0)
+            {
+                return;
+            }
+
+            var so = new SerializedObject(asset[0]);
+            SerializedProperty tags = so.FindProperty("tags");
+            for (int i = 0; i < tags.arraySize; i++)
+            {
+                if (tags.GetArrayElementAtIndex(i).stringValue == tag)
+                {
+                    return;
+                }
+            }
+
+            tags.arraySize++;
+            tags.GetArrayElementAtIndex(tags.arraySize - 1).stringValue = tag;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        // Serialized-field setters (private fields authored from the editor).
+        private static void SetRef(Object target, string field, Object value)
+        {
+            var so = new SerializedObject(target);
+            so.FindProperty(field).objectReferenceValue = value;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void SetFloat(Object target, string field, float value)
+        {
+            var so = new SerializedObject(target);
+            so.FindProperty(field).floatValue = value;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void SetInt(Object target, string field, int value)
+        {
+            var so = new SerializedObject(target);
+            so.FindProperty(field).intValue = value;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void SetString(Object target, string field, string value)
+        {
+            var so = new SerializedObject(target);
+            so.FindProperty(field).stringValue = value;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void SetList(Object target, string field, List<Object> values)
+        {
+            var so = new SerializedObject(target);
+            SerializedProperty prop = so.FindProperty(field);
+            prop.arraySize = values.Count;
+            for (int i = 0; i < values.Count; i++)
+            {
+                prop.GetArrayElementAtIndex(i).objectReferenceValue = values[i];
+            }
+
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
     }
 }

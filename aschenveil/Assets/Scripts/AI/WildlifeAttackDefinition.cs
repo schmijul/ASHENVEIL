@@ -1,50 +1,56 @@
-using System;
+using Ashenveil.Core;
 using UnityEngine;
-using Ashenveil.Combat;
 
 namespace Ashenveil.AI
 {
     /// <summary>
-    /// Serializable attack data for wildlife combat behaviors.
+    /// Serialized melee attack tunables for aggressive wildlife.
+    /// Referenced GDD section: Kernsysteme / Wildlife.
     /// </summary>
-    [Serializable]
-    public sealed class WildlifeAttackDefinition
+    [System.Serializable]
+    public struct WildlifeAttackDefinition
     {
-        [Header("Identity")]
-        public string AnimationTrigger = string.Empty;
-        public WildlifeAttackKind AttackKind = WildlifeAttackKind.None;
-        public DamageType DamageType = DamageType.Physical;
+        [SerializeField] private float _damage;
+        [SerializeField] private DamageType _damageType;
+        [SerializeField] private float _range;
+        [SerializeField] private float _cooldown;
+        [SerializeField] private float _knockback;
 
-        [Header("Combat")]
-        [Min(0f)] public float Damage = 0f;
-        [Min(0f)] public float Range = 2f;
-        [Min(0f)] public float WindUp = 0.2f;
-        [Min(0f)] public float Recovery = 0.4f;
-        [Min(0f)] public float Cooldown = 0f;
-        [Min(0f)] public float AreaRadius = 0f;
-        [Min(0f)] public float SpeedMultiplier = 1f;
-        [Min(0f)] public float HealthThreshold = 0f;
-        public bool RequiresRearApproach;
-        public bool OnlyOncePerFight;
+        /// <summary>
+        /// Damage amount dealt by this attack.
+        /// </summary>
+        public float Damage => Mathf.Max(0f, _damage);
 
-        public WildlifeAttackDefinition Clone()
+        /// <summary>
+        /// Damage type dealt by this attack.
+        /// </summary>
+        public DamageType DamageType => _damageType;
+
+        /// <summary>
+        /// Attack range in meters.
+        /// </summary>
+        public float Range => Mathf.Max(0.1f, _range);
+
+        /// <summary>
+        /// Seconds between attacks.
+        /// </summary>
+        public float Cooldown => Mathf.Max(0.01f, _cooldown);
+
+        /// <summary>
+        /// Requested knockback strength.
+        /// </summary>
+        public float Knockback => Mathf.Max(0f, _knockback);
+
+        /// <summary>
+        /// Sensible default attack for aggressive wildlife.
+        /// </summary>
+        public static WildlifeAttackDefinition Default => new WildlifeAttackDefinition
         {
-            return new WildlifeAttackDefinition
-            {
-                AnimationTrigger = AnimationTrigger,
-                AttackKind = AttackKind,
-                DamageType = DamageType,
-                Damage = Damage,
-                Range = Range,
-                WindUp = WindUp,
-                Recovery = Recovery,
-                Cooldown = Cooldown,
-                AreaRadius = AreaRadius,
-                SpeedMultiplier = SpeedMultiplier,
-                HealthThreshold = HealthThreshold,
-                RequiresRearApproach = RequiresRearApproach,
-                OnlyOncePerFight = OnlyOncePerFight
-            };
-        }
+            _damage = 12f,
+            _damageType = DamageType.Physical,
+            _range = 1.3f,
+            _cooldown = 1.4f,
+            _knockback = 2f
+        };
     }
 }
